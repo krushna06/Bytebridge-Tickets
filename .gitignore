@@ -1,0 +1,12 @@
+# directories
+.history/
+.vscode/
+node_modules/
+prisma/
+user/
+
+# files
+*.env*
+*.db*
+*.log
+summary.md
