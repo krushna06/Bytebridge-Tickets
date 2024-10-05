@@ -1,16 +1,15 @@
 const { SlashCommand } = require('@eartharoid/dbf');
-const { sendToHouston } = require('../../lib/stats');
+const { EmbedBuilder } = require('discord.js');
+const { getAvgResolutionTime, getAvgResponseTime } = require('../../lib/stats');
 
 module.exports = class StatsSlashCommand extends SlashCommand {
     constructor(client, options) {
         const name = 'stats';
         super(client, {
             ...options,
-            description: 'Hello',
-            // descriptionLocalizations: client.i18n.getAllMessages(`commands.slash.${name}.description`),
+            description: 'Shows and updates the ticket stats.',
             dmPermission: false,
             name,
-            // nameLocalizations: client.i18n.getAllMessages(`commands.slash.${name}.name`),
         });
     }
 
@@ -24,11 +23,37 @@ module.exports = class StatsSlashCommand extends SlashCommand {
         await interaction.deferReply({ ephemeral: false });
 
         try {
-            await sendToHouston(client);
-            await interaction.editReply('Stats have been successfully sent to Houston.');
+            const guilds = await client.prisma.guild.findMany({
+                include: {
+                    tickets: {
+                        select: {
+                            closedAt: true,
+                            createdAt: true,
+                            firstResponseAt: true,
+                        },
+                    },
+                },
+            });
+
+            const closedTickets = guilds.flatMap(guild => guild.tickets.filter(t => t.firstResponseAt && t.closedAt));
+            const avgResolutionTime = getAvgResolutionTime(closedTickets);
+            const avgResponseTime = getAvgResponseTime(closedTickets);
+            const totalTickets = closedTickets.length;
+
+            const statsEmbed = new EmbedBuilder()
+                .setTitle('Ticket Statistics')
+                .setColor(0x00AE86)
+                .addFields(
+                    { name: 'Average Resolution Time', value: `${Math.round(avgResolutionTime)} minutes`, inline: true },
+                    { name: 'Average Response Time', value: `${Math.round(avgResponseTime)} minutes`, inline: true },
+                    { name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
+                )
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [statsEmbed] });
         } catch (error) {
-            client.log.error('Error sending stats:', error);
-            await interaction.editReply('An error occurred while sending stats. Please try again later.');
+            client.log.error('Error fetching stats:', error);
+            await interaction.editReply('An error occurred while fetching stats. Please try again later.');
         }
     }
 };
