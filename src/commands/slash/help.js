@@ -3,6 +3,18 @@ const { isStaff } = require('../../lib/users');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { version } = require('../../../package.json');
 
+function chunkString(str, maxLength) {
+	const chunks = [];
+	while (str.length > maxLength) {
+		let sliceIndex = str.lastIndexOf('\n', maxLength);
+		if (sliceIndex === -1) sliceIndex = maxLength;
+		chunks.push(str.slice(0, sliceIndex));
+		str = str.slice(sliceIndex).trim();
+	}
+	if (str.length > 0) chunks.push(str);
+	return chunks;
+}
+
 module.exports = class ClaimSlashCommand extends SlashCommand {
 	constructor(client, options) {
 		const name = 'help';
@@ -31,47 +43,32 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			.filter(c => c.type === 1)
 			.map(c => `> </${c.name}:${c.id}>: ${c.description}`)
 			.join('\n');
-		const newCommand = client.application.commands.cache.find(c => c.name === 'new');
-		const fields = [
-			{
-				name: getMessage('commands.slash.help.response.commands'),
-				value: commands,
-			},
-		];
 
-		if (staff) {
-			fields.unshift(
-				{
-					inline: true,
-					name: getMessage('commands.slash.help.response.links.links'),
-					value: [
-						['feedback', 'https://discord.gg/gWRhsZHHeb'],
-						['support', 'https://discord.gg/gWRhsZHHeb'],
-					]
-						.map(([l, url]) => `> [${getMessage('commands.slash.help.response.links.' + l)}](${url})`)
-						.join('\n'),
-				},
-				{
-					inline: true,
-					name: getMessage('commands.slash.help.response.settings'),
-					value: '> ' + process.env.HTTP_EXTERNAL + '/settings',
-				},
-			);
-		}
+		const links = staff
+			? [
+				`> [${getMessage('commands.slash.help.response.links.feedback')}](https://discord.gg/gWRhsZHHeb)`,
+				`> [${getMessage('commands.slash.help.response.links.support')}](https://discord.gg/gWRhsZHHeb)`,
+				`> ${getMessage('commands.slash.help.response.settings')}: ${process.env.HTTP_EXTERNAL}/settings`
+			].join('\n')
+			: '';
+
+		let description = staff
+			? `**Furnacecraft Tickets v${version} by nostep.**\n\n${links}\n\n${commands}`
+			: getMessage('commands.slash.help.response.description', { command: `</new:${client.application.commands.cache.find(c => c.name === 'new').id}>` }) + `\n\n${commands}`;
+
+		const descriptionChunks = chunkString(description, 4096);
+
+		const embeds = descriptionChunks.map((chunk, index) => new ExtendedEmbedBuilder({
+			iconURL: interaction.guild.iconURL(),
+			text: settings.footer,
+		})
+			.setColor(settings.primaryColour)
+			.setTitle(index === 0 ? getMessage('commands.slash.help.title') : null)
+			.setDescription(chunk)
+		);
 
 		interaction.editReply({
-			embeds: [
-				new ExtendedEmbedBuilder({
-					iconURL: interaction.guild.iconURL(),
-					text: settings.footer,
-				})
-					.setColor(settings.primaryColour)
-					.setTitle(getMessage('commands.slash.help.title'))
-					.setDescription(staff
-						? `**Furnacecraft Tickets v${version} by nostep.**`
-						: getMessage('commands.slash.help.response.description', { command: `</${newCommand.name}:${newCommand.id}>` }))
-					.setFields(fields),
-			],
+			embeds: embeds,
 		});
 	}
 };
