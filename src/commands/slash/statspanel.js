@@ -66,13 +66,17 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
             return profiles;
         };
 
+        const convertMsToMinutes = (ms) => {
+            return (ms / 60000).toFixed(2);
+        };
+
         const createEmbed = async (avgResolutionTime, avgResponseTime, totalTickets, profiles) => {
             const profileEmbed = new EmbedBuilder()
                 .setTitle('Ticket Statistics and User Profiles')
                 .setColor(0x00AE86)
                 .addFields(
-                    { name: 'Average Resolution Time', value: `${Math.round(avgResolutionTime)} minutes`, inline: true },
-                    { name: 'Average Response Time', value: `${Math.round(avgResponseTime)} minutes`, inline: true },
+                    { name: 'Average Resolution Time', value: `${convertMsToMinutes(avgResolutionTime)} minutes`, inline: true },
+                    { name: 'Average Response Time', value: `${convertMsToMinutes(avgResponseTime)} minutes`, inline: true },
                     { name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
                 )
                 .setTimestamp();
