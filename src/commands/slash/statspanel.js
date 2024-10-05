@@ -70,100 +70,97 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
             return profiles;
         };
 
-        const convertMsToMinutes = (ms) => {
-            return (ms / 60000).toFixed(2);
+        const convertMsToSeconds = (ms) => {
+            return (ms / 1000).toFixed(2);
         };
 
-		const createEmbed = async (avgResolutionTimePerUser, avgResponseTimePerUser, totalTickets, profiles) => {
-			const profileEmbed = new EmbedBuilder()
-				.setTitle('Ticket Statistics and User Profiles')
-				.setColor(0x00AE86)
-				.addFields(
-					{ name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
-				)
-				.setTimestamp();
+        const createEmbed = async (avgResolutionTimePerUser, avgResponseTimePerUser, totalTickets, profiles) => {
+            const profileEmbed = new EmbedBuilder()
+                .setTitle('Ticket Statistics and User Profiles')
+                .setColor(0x00AE86)
+                .addFields(
+                    { name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
+                )
+                .setTimestamp();
 
-			let totalResponseTime = 0;
-			let totalResolutionTime = 0;
-			let responseCount = 0;
-			let resolutionCount = 0;
+            let totalResponseTime = 0;
+            let totalResolutionTime = 0;
+            let responseCount = 0;
+            let resolutionCount = 0;
 
-			for (const userId in avgResponseTimePerUser) {
-				if (avgResponseTimePerUser[userId]) {
-					totalResponseTime += avgResponseTimePerUser[userId];
-					responseCount++;
-				}
-			}
+            for (const userId in avgResponseTimePerUser) {
+                if (avgResponseTimePerUser[userId]) {
+                    totalResponseTime += avgResponseTimePerUser[userId];
+                    responseCount++;
+                }
+            }
 
-			for (const userId in avgResolutionTimePerUser) {
-				if (avgResolutionTimePerUser[userId]) {
-					totalResolutionTime += avgResolutionTimePerUser[userId];
-					resolutionCount++;
-				}
-			}
+            for (const userId in avgResolutionTimePerUser) {
+                if (avgResolutionTimePerUser[userId]) {
+                    totalResolutionTime += avgResolutionTimePerUser[userId];
+                    resolutionCount++;
+                }
+            }
 
-			const guildAvgResponseTime = responseCount > 0 ? convertMsToMinutes(totalResponseTime / responseCount) : 'No data';
-			const guildAvgResolutionTime = resolutionCount > 0 ? convertMsToMinutes(totalResolutionTime / resolutionCount) : 'No data';
+            const guildAvgResponseTime = responseCount > 0 ? convertMsToSeconds(totalResponseTime / responseCount) : 'No data';
+            const guildAvgResolutionTime = resolutionCount > 0 ? convertMsToSeconds(totalResolutionTime / resolutionCount) : 'No data';
 
-			profileEmbed.addFields(
-				{ name: 'Guild Avg Response Time', value: `${guildAvgResponseTime} mins`, inline: true },
-				{ name: 'Guild Avg Resolution Time', value: `${guildAvgResolutionTime} mins`, inline: true }
-			);
+            profileEmbed.addFields(
+                { name: 'Guild Avg Response Time', value: `${guildAvgResponseTime} seconds`, inline: true },
+                { name: 'Guild Avg Resolution Time', value: `${guildAvgResolutionTime} seconds`, inline: true }
+            );
 
-			for (const userId in profiles) {
-				const profile = profiles[userId] || {};
-				const bio = profile.bio || 'Not set';
-				const timezone = profile.timezone || 'Not set';
-				const activeHours = profile.activeHours || 'Not set';
+            for (const userId in profiles) {
+                const profile = profiles[userId] || {};
+                const bio = profile.bio || 'Not set';
+                const timezone = profile.timezone || 'Not set';
+                const activeHours = profile.activeHours || 'Not set';
 
-				const avgResponseTime = avgResponseTimePerUser[userId] ? convertMsToMinutes(avgResponseTimePerUser[userId]) : 'No data';
-				const avgResolutionTime = avgResolutionTimePerUser[userId] ? convertMsToMinutes(avgResolutionTimePerUser[userId]) : 'No data';
+                const avgResponseTime = avgResponseTimePerUser[userId] ? convertMsToSeconds(avgResponseTimePerUser[userId]) : 'No data';
+                const avgResolutionTime = avgResolutionTimePerUser[userId] ? convertMsToSeconds(avgResolutionTimePerUser[userId]) : 'No data';
 
-				let activeHoursFormatted = 'Not set';
-				if (activeHours !== 'Not set') {
-					const [start, end] = activeHours.split('-');
+                let activeHoursFormatted = 'Not set';
+                if (activeHours !== 'Not set') {
+                    const [start, end] = activeHours.split('-');
 
-					const convertTo24Hour = (time) => {
-						const amPm = time.slice(-2).toLowerCase();
-						let [hour] = time.slice(0, -2).split(':');
-						hour = parseInt(hour);
-						if (amPm === 'pm' && hour < 12) hour += 12;
-						if (amPm === 'am' && hour === 12) hour = 0;
-						return hour;
-					};
+                    const convertTo24Hour = (time) => {
+                        const amPm = time.slice(-2).toLowerCase();
+                        let [hour] = time.slice(0, -2).split(':');
+                        hour = parseInt(hour);
+                        if (amPm === 'pm' && hour < 12) hour += 12;
+                        if (amPm === 'am' && hour === 12) hour = 0;
+                        return hour;
+                    };
 
-					try {
-						const startHour = convertTo24Hour(start);
-						const endHour = convertTo24Hour(end);
+                    try {
+                        const startHour = convertTo24Hour(start);
+                        const endHour = convertTo24Hour(end);
 
-						const activeStartUnix = Math.floor(new Date().setHours(startHour, 0, 0, 0) / 1000);
-						const activeEndUnix = Math.floor(new Date().setHours(endHour, 0, 0, 0) / 1000);
+                        const activeStartUnix = Math.floor(new Date().setHours(startHour, 0, 0, 0) / 1000);
+                        const activeEndUnix = Math.floor(new Date().setHours(endHour, 0, 0, 0) / 1000);
 
-						activeHoursFormatted = `<t:${activeStartUnix}:t> - <t:${activeEndUnix}:t>`;
-					} catch (error) {
-						console.error(`Error parsing active hours for user ${userId}: ${error}`);
-					}
-				}
+                        activeHoursFormatted = `<t:${activeStartUnix}:t> - <t:${activeEndUnix}:t>`;
+                    } catch (error) {
+                        console.error(`Error parsing active hours for user ${userId}: ${error}`);
+                    }
+                }
 
-				try {
-					const user = await interaction.guild.members.fetch(userId);
-					const username = user.user.username;
+                try {
+                    const user = await interaction.guild.members.fetch(userId);
+                    const username = user.user.username;
 
-					profileEmbed.addFields({
-						name: `${username}`,
-						value: `**Bio:** ${bio}\n**Timezone:** ${timezone}\n**Avg Response Time:** ${avgResponseTime} mins\n**Avg Resolution Time:** ${avgResolutionTime} mins\n**Active Hours:** ${activeHoursFormatted}`,
-						inline: true,
-					});
-				} catch (error) {
-					console.error(`Could not fetch user with ID ${userId}:`, error);
-				}
-			}
+                    profileEmbed.addFields({
+                        name: `${username}`,
+                        value: `**Bio:** ${bio}\n**Timezone:** ${timezone}\n**Avg Response Time:** ${avgResponseTime} seconds\n**Avg Resolution Time:** ${avgResolutionTime} seconds\n**Active Hours:** ${activeHoursFormatted}`,
+                        inline: true,
+                    });
+                } catch (error) {
+                    console.error(`Could not fetch user with ID ${userId}:`, error);
+                }
+            }
 
-			return profileEmbed;
-		};
-
-
-
+            return profileEmbed;
+        };
 
         const initialStats = await fetchStats();
         const profiles = await fetchProfiles();
