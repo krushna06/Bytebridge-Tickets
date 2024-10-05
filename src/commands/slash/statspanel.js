@@ -114,9 +114,36 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
 				const profile = profiles[userId] || {};
 				const bio = profile.bio || 'Not set';
 				const timezone = profile.timezone || 'Not set';
+				const activeHours = profile.activeHours || 'Not set';
 
 				const avgResponseTime = avgResponseTimePerUser[userId] ? convertMsToMinutes(avgResponseTimePerUser[userId]) : 'No data';
 				const avgResolutionTime = avgResolutionTimePerUser[userId] ? convertMsToMinutes(avgResolutionTimePerUser[userId]) : 'No data';
+
+				let activeHoursFormatted = 'Not set';
+				if (activeHours !== 'Not set') {
+					const [start, end] = activeHours.split('-');
+
+					const convertTo24Hour = (time) => {
+						const amPm = time.slice(-2).toLowerCase();
+						let [hour] = time.slice(0, -2).split(':');
+						hour = parseInt(hour);
+						if (amPm === 'pm' && hour < 12) hour += 12;
+						if (amPm === 'am' && hour === 12) hour = 0;
+						return hour;
+					};
+
+					try {
+						const startHour = convertTo24Hour(start);
+						const endHour = convertTo24Hour(end);
+
+						const activeStartUnix = Math.floor(new Date().setHours(startHour, 0, 0, 0) / 1000);
+						const activeEndUnix = Math.floor(new Date().setHours(endHour, 0, 0, 0) / 1000);
+
+						activeHoursFormatted = `<t:${activeStartUnix}:t> - <t:${activeEndUnix}:t>`;
+					} catch (error) {
+						console.error(`Error parsing active hours for user ${userId}: ${error}`);
+					}
+				}
 
 				try {
 					const user = await interaction.guild.members.fetch(userId);
@@ -124,7 +151,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
 
 					profileEmbed.addFields({
 						name: `${username}`,
-						value: `**Bio:** ${bio}\n**Timezone:** ${timezone}\n**Avg Response Time:** ${avgResponseTime} mins\n**Avg Resolution Time:** ${avgResolutionTime} mins`,
+						value: `**Bio:** ${bio}\n**Timezone:** ${timezone}\n**Avg Response Time:** ${avgResponseTime} mins\n**Avg Resolution Time:** ${avgResolutionTime} mins\n**Active Hours:** ${activeHoursFormatted}`,
 						inline: true,
 					});
 				} catch (error) {
@@ -134,6 +161,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
 
 			return profileEmbed;
 		};
+
 
 
 
