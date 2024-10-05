@@ -22,9 +22,12 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 
         await interaction.reply({ content: 'Fetching stats...', ephemeral: false });
 
+        const TARGET_GUILD_ID = '877062059966206002';
+
         const fetchStats = async () => {
             try {
-                const guilds = await client.prisma.guild.findMany({
+                const guild = await client.prisma.guild.findUnique({
+                    where: { id: TARGET_GUILD_ID },
                     include: {
                         tickets: {
                             select: {
@@ -36,7 +39,7 @@ module.exports = class StatsSlashCommand extends SlashCommand {
                     },
                 });
 
-                const closedTickets = guilds.flatMap(guild => guild.tickets.filter(t => t.firstResponseAt && t.closedAt));
+                const closedTickets = guild.tickets.filter(t => t.firstResponseAt && t.closedAt);
                 const avgResolutionTime = getAvgResolutionTime(closedTickets);
                 const avgResponseTime = getAvgResponseTime(closedTickets);
                 const totalTickets = closedTickets.length;
@@ -66,9 +69,29 @@ module.exports = class StatsSlashCommand extends SlashCommand {
             return;
         }
 
-        const statsMessage = await interaction.channel.send({
-            embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets)],
-        });
+        // try finding the stats message in the guild
+        let statsMessage;
+        try {
+            const guildChannel = await client.channels.fetch('899659621097152563');
+            statsMessage = await guildChannel.messages.fetch({ limit: 10 }).then(messages =>
+                messages.find(msg => msg.embeds.length > 0 && msg.embeds[0].title === 'Ticket Statistics')
+            );
+            if (statsMessage) {
+                await statsMessage.edit({
+                    embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets)],
+                });
+            }
+        } catch (error) {
+            client.log.error('Could not fetch existing stats message:', error);
+        }
+
+        // if no existing message, send a new one
+        if (!statsMessage) {
+            const guildChannel = await client.channels.fetch('899659621097152563');
+            statsMessage = await guildChannel.send({
+                embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets)],
+            });
+        }
 
         const updateInterval = setInterval(async () => {
             const updatedStats = await fetchStats();
@@ -78,5 +101,9 @@ module.exports = class StatsSlashCommand extends SlashCommand {
                 });
             }
         }, 60000);  // 1 minute
+
+        interaction.channel.awaitMessages({ filter: m => m.author.id === interaction.user.id, max: 1, time: 60000, errors: ['time'] })
+            .then(() => clearInterval(updateInterval))
+            .catch(() => clearInterval(updateInterval));
     }
 };
