@@ -51,8 +51,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
             }
         };
 
-        const convertMsToMinutes = (ms) => {
-            return (ms / 60000).toFixed(2);
+        const convertMsToSeconds = (ms) => {
+            return (ms / 1000).toFixed(2);
         };
 
         const createEmbed = (avgResolutionTime, avgResponseTime, totalTickets) => {
@@ -60,8 +60,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
                 .setTitle('Ticket Statistics')
                 .setColor(0x00AE86)
                 .addFields(
-                    { name: 'Average Resolution Time', value: `${convertMsToMinutes(avgResolutionTime)} minutes`, inline: true },
-                    { name: 'Average Response Time', value: `${convertMsToMinutes(avgResponseTime)} minutes`, inline: true },
+                    { name: 'Average Resolution Time', value: `${convertMsToSeconds(avgResolutionTime)} seconds`, inline: true },
+                    { name: 'Average Response Time', value: `${convertMsToSeconds(avgResponseTime)} seconds`, inline: true },
                     { name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
                 )
                 .setTimestamp();
@@ -73,7 +73,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
             return;
         }
 
-        // try finding the stats message in the guild
         let statsMessage;
         try {
             const guildChannel = await client.channels.fetch('899659621097152563');
@@ -89,7 +88,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
             client.log.error('Could not fetch existing stats message:', error);
         }
 
-        // if no existing message, send a new one
         if (!statsMessage) {
             const guildChannel = await client.channels.fetch('899659621097152563');
             statsMessage = await guildChannel.send({
