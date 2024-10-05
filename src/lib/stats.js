@@ -8,6 +8,53 @@ module.exports.getAvgResolutionTime = tickets => (tickets.reduce((total, ticket)
 
 module.exports.getAvgResponseTime = tickets => (tickets.reduce((total, ticket) => total + (ticket.firstResponseAt - ticket.createdAt), 0) || 1) / Math.max(tickets.length, 1);
 
+module.exports.getAvgResolutionTimePerUser = tickets => {
+    const userResolutionTimes = {};
+
+    tickets.forEach(ticket => {
+        if (!ticket.claimedById || !ticket.closedAt) return;
+        const resolutionTime = ticket.closedAt - ticket.createdAt;
+
+        if (!userResolutionTimes[ticket.claimedById]) {
+            userResolutionTimes[ticket.claimedById] = { total: 0, count: 0 };
+        }
+
+        userResolutionTimes[ticket.claimedById].total += resolutionTime;
+        userResolutionTimes[ticket.claimedById].count++;
+    });
+
+    const avgResolutionTimes = {};
+    for (const userId in userResolutionTimes) {
+        avgResolutionTimes[userId] = userResolutionTimes[userId].total / Math.max(userResolutionTimes[userId].count, 1);
+    }
+
+    return avgResolutionTimes;
+};
+
+module.exports.getAvgResponseTimePerUser = tickets => {
+    const userResponseTimes = {};
+
+    tickets.forEach(ticket => {
+        if (!ticket.claimedById || !ticket.firstResponseAt) return;
+        const responseTime = ticket.firstResponseAt - ticket.createdAt;
+
+        if (!userResponseTimes[ticket.claimedById]) {
+            userResponseTimes[ticket.claimedById] = { total: 0, count: 0 };
+        }
+
+        userResponseTimes[ticket.claimedById].total += responseTime;
+        userResponseTimes[ticket.claimedById].count++;
+    });
+
+    const avgResponseTimes = {};
+    for (const userId in userResponseTimes) {
+        avgResponseTimes[userId] = userResponseTimes[userId].total / Math.max(userResponseTimes[userId].count, 1);
+    }
+
+    return avgResponseTimes;
+};
+
+
 /**
  *
  * @param {import("../client")} client
@@ -48,7 +95,6 @@ module.exports.sendToHouston = async client => {
 					claiming: guild.categories.filter(c => c.claiming).length,
 					feedback: guild.categories.filter(c => c.enableFeedback).length,
 					logs: !!guild.logChannel,
-					// eslint-disable-next-line no-underscore-dangle
 					questions: guild.categories.filter(c => c._count.questions).length,
 					tags: guild.tags.length,
 					tags_regex: guild.tags.filter(t => t.regex).length,
@@ -57,7 +103,7 @@ module.exports.sendToHouston = async client => {
 				id: md5(guild.id),
 				locale: guild.locale,
 				members: client.guilds.cache.get(guild.id).memberCount,
-				messages: users.reduce((total, user) => total + user.messageCount, 0), // global not guild, don't count archivedMessage table rows, they can be deleted
+				messages: users.reduce((total, user) => total + user.messageCount, 0),
 				tickets: guild.tickets.length,
 			};
 		}),

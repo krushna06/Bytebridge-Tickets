@@ -2,7 +2,10 @@ const { SlashCommand } = require('@eartharoid/dbf');
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { getAvgResolutionTime, getAvgResponseTime } = require('../../lib/stats');
+const {
+    getAvgResolutionTimePerUser,
+    getAvgResponseTimePerUser
+} = require('../../lib/stats');
 const profilesPath = path.join(__dirname, '../../../db/json/profiles.json');
 
 module.exports = class StatsPanelSlashCommand extends SlashCommand {
@@ -20,7 +23,6 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
      * @param {import("discord.js").ChatInputCommandInteraction} interaction
      */
     async run(interaction) {
-        /** @type {import("client")} */
         const client = this.client;
 
         await interaction.reply({ content: 'Fetching stats and profiles...', ephemeral: false });
@@ -37,17 +39,19 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
                                 closedAt: true,
                                 createdAt: true,
                                 firstResponseAt: true,
+                                claimedById: true,
                             },
                         },
                     },
                 });
 
                 const closedTickets = guild.tickets.filter(t => t.firstResponseAt && t.closedAt);
-                const avgResolutionTime = getAvgResolutionTime(closedTickets);
-                const avgResponseTime = getAvgResponseTime(closedTickets);
+
+                const avgResolutionTimePerUser = getAvgResolutionTimePerUser(closedTickets);
+                const avgResponseTimePerUser = getAvgResponseTimePerUser(closedTickets);
                 const totalTickets = closedTickets.length;
 
-                return { avgResolutionTime, avgResponseTime, totalTickets };
+                return { avgResolutionTimePerUser, avgResponseTimePerUser, totalTickets };
             } catch (error) {
                 client.log.error('Error fetching stats:', error);
                 return null;
@@ -70,42 +74,68 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
             return (ms / 60000).toFixed(2);
         };
 
-        const createEmbed = async (avgResolutionTime, avgResponseTime, totalTickets, profiles) => {
-            const profileEmbed = new EmbedBuilder()
-                .setTitle('Ticket Statistics and User Profiles')
-                .setColor(0x00AE86)
-                .addFields(
-                    { name: 'Average Resolution Time', value: `${convertMsToMinutes(avgResolutionTime)} minutes`, inline: true },
-                    { name: 'Average Response Time', value: `${convertMsToMinutes(avgResponseTime)} minutes`, inline: true },
-                    { name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
-                )
-                .setTimestamp();
+		const createEmbed = async (avgResolutionTimePerUser, avgResponseTimePerUser, totalTickets, profiles) => {
+			const profileEmbed = new EmbedBuilder()
+				.setTitle('Ticket Statistics and User Profiles')
+				.setColor(0x00AE86)
+				.addFields(
+					{ name: 'Total Tickets Closed', value: `${totalTickets}`, inline: true }
+				)
+				.setTimestamp();
 
-            if (profiles) {
-                for (const [userId, profile] of Object.entries(profiles)) {
-                    try {
-                        const user = await interaction.guild.members.fetch(userId);
-                        const username = user.user.username;
+			let totalResponseTime = 0;
+			let totalResolutionTime = 0;
+			let responseCount = 0;
+			let resolutionCount = 0;
 
-                        profileEmbed.addFields({
-                            name: username,
-                            value: `Bio: ${profile.bio || 'Not set'}, Timezone: ${profile.timezone || 'Not set'}`,
-                            inline: true,
-                        });
-                    } catch (error) {
-                        console.error(`Could not fetch user with ID ${userId}:`, error);
-                    }
-                }
-            } else {
-                profileEmbed.addFields({
-                    name: 'Profiles',
-                    value: 'No profiles found.',
-                    inline: false,
-                });
-            }
+			for (const userId in avgResponseTimePerUser) {
+				if (avgResponseTimePerUser[userId]) {
+					totalResponseTime += avgResponseTimePerUser[userId];
+					responseCount++;
+				}
+			}
 
-            return profileEmbed;
-        };
+			for (const userId in avgResolutionTimePerUser) {
+				if (avgResolutionTimePerUser[userId]) {
+					totalResolutionTime += avgResolutionTimePerUser[userId];
+					resolutionCount++;
+				}
+			}
+
+			const guildAvgResponseTime = responseCount > 0 ? convertMsToMinutes(totalResponseTime / responseCount) : 'No data';
+			const guildAvgResolutionTime = resolutionCount > 0 ? convertMsToMinutes(totalResolutionTime / resolutionCount) : 'No data';
+
+			profileEmbed.addFields(
+				{ name: 'Guild Avg Response Time', value: `${guildAvgResponseTime} mins`, inline: true },
+				{ name: 'Guild Avg Resolution Time', value: `${guildAvgResolutionTime} mins`, inline: true }
+			);
+
+			for (const userId in profiles) {
+				const profile = profiles[userId] || {};
+				const bio = profile.bio || 'Not set';
+				const timezone = profile.timezone || 'Not set';
+
+				const avgResponseTime = avgResponseTimePerUser[userId] ? convertMsToMinutes(avgResponseTimePerUser[userId]) : 'No data';
+				const avgResolutionTime = avgResolutionTimePerUser[userId] ? convertMsToMinutes(avgResolutionTimePerUser[userId]) : 'No data';
+
+				try {
+					const user = await interaction.guild.members.fetch(userId);
+					const username = user.user.username;
+
+					profileEmbed.addFields({
+						name: `${username}`,
+						value: `**Bio:** ${bio}\n**Timezone:** ${timezone}\n**Avg Response Time:** ${avgResponseTime} mins\n**Avg Resolution Time:** ${avgResolutionTime} mins`,
+						inline: true,
+					});
+				} catch (error) {
+					console.error(`Could not fetch user with ID ${userId}:`, error);
+				}
+			}
+
+			return profileEmbed;
+		};
+
+
 
         const initialStats = await fetchStats();
         const profiles = await fetchProfiles();
@@ -124,7 +154,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
 
             if (statsMessage) {
                 await statsMessage.edit({
-                    embeds: [await createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, profiles)],
+                    embeds: [await createEmbed(initialStats.avgResolutionTimePerUser, initialStats.avgResponseTimePerUser, initialStats.totalTickets, profiles)],
                 });
             }
         } catch (error) {
@@ -134,7 +164,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
         if (!statsMessage) {
             const guildChannel = await client.channels.fetch('899659621097152563');
             statsMessage = await guildChannel.send({
-                embeds: [await createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, profiles)],
+                embeds: [await createEmbed(initialStats.avgResolutionTimePerUser, initialStats.avgResponseTimePerUser, initialStats.totalTickets, profiles)],
             });
         }
 
@@ -143,7 +173,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
             const updatedProfiles = await fetchProfiles();
             if (updatedStats) {
                 await statsMessage.edit({
-                    embeds: [await createEmbed(updatedStats.avgResolutionTime, updatedStats.avgResponseTime, updatedStats.totalTickets, updatedProfiles)],
+                    embeds: [await createEmbed(updatedStats.avgResolutionTimePerUser, updatedStats.avgResponseTimePerUser, updatedStats.totalTickets, updatedProfiles)],
                 });
             }
         }, 60000);  // 1 minute
