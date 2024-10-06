@@ -53,7 +53,7 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			: '';
 
 		let description = staff
-			? `**Furnacecraft Tickets v${version} by nostep.**\n\n${links}\n\n${commands}`
+			? `**Bytebridge Limited v${version} by nostep.**\n\n${links}\n\n${commands}`
 			: getMessage('commands.slash.help.response.description', { command: `</new:${client.application.commands.cache.find(c => c.name === 'new').id}>` }) + `\n\n${commands}`;
 
 		const descriptionChunks = chunkString(description, 4096);

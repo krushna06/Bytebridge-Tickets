@@ -101,7 +101,7 @@ CREATE TABLE "guilds" (
     "closeButton" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "errorColour" TEXT NOT NULL DEFAULT 'Red',
-    "footer" TEXT DEFAULT 'Furnacecraft Support by n0step',
+    "footer" TEXT DEFAULT 'Bytebridge Limited by n0step',
     "id" TEXT NOT NULL PRIMARY KEY,
     "locale" TEXT NOT NULL DEFAULT 'en-GB',
     "logChannel" TEXT,

@@ -44,7 +44,7 @@ module.exports = config => {
 				directory: config.logs.files.directory,
 				format: '[{timestamp}] [{LEVEL}] ({NAMESPACE}) @{file}:{line}:{column} {content}',
 				level: config.logs.level,
-				name: 'Furnacecraft Support by n0step',
+				name: 'Bytebridge Limited by n0step',
 			}),
 		);
 	}
