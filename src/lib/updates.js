@@ -1,4 +1,3 @@
-const semver = require('semver');
 const { short } = require('leeks.js');
 const ExtendedEmbedBuilder = require('./embed');
 const { version: currentVersion } = require('../../package.json');
