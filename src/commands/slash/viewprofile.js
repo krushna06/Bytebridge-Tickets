@@ -2,6 +2,10 @@ const { SlashCommand } = require('@eartharoid/dbf');
 const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const {
+    getAvgResolutionTimePerUser,
+    getAvgResponseTimePerUser,
+} = require('../../lib/stats');
 const profilesPath = path.join(__dirname, '../../../db/json/profiles.json');
 
 module.exports = class ViewProfileSlashCommand extends SlashCommand {
@@ -47,6 +51,54 @@ module.exports = class ViewProfileSlashCommand extends SlashCommand {
             });
         }
 
+        const TARGET_GUILD_ID = '877062059966206002';
+        const guild = await interaction.client.prisma.guild.findUnique({
+            include: {
+                tickets: {
+                    select: {
+                        claimedById: true,
+                        closedAt: true,
+                        createdAt: true,
+                        firstResponseAt: true,
+                    },
+                },
+            },
+            where: { id: TARGET_GUILD_ID },
+        });
+
+        const closedTickets = guild.tickets.filter(t => t.firstResponseAt && t.closedAt);
+
+        const avgResponseTimePerUser = getAvgResponseTimePerUser(closedTickets);
+        const avgResolutionTimePerUser = getAvgResolutionTimePerUser(closedTickets);
+
+        const feedbackRows = await interaction.client.prisma.feedback.findMany({
+            select: {
+                rating: true,
+                userId: true
+            },
+            where: {
+                guildId: TARGET_GUILD_ID
+            }
+        });
+
+        const feedbackStats = {};
+        feedbackRows.forEach(row => {
+            if (!feedbackStats[row.userId]) {
+                feedbackStats[row.userId] = { totalRating: 0, count: 0 };
+            }
+            feedbackStats[row.userId].totalRating += row.rating;
+            feedbackStats[row.userId].count++;
+        });
+
+        const avgFeedbackPerUser = {};
+        Object.keys(feedbackStats).forEach(userId => {
+            avgFeedbackPerUser[userId] = feedbackStats[userId].totalRating / feedbackStats[userId].count;
+        });
+
+        const userResponseTime = avgResponseTimePerUser[userId];
+        const userResolutionTime = avgResolutionTimePerUser[userId];
+        const userFeedback = avgFeedbackPerUser[userId];
+
         const profileEmbed = new EmbedBuilder()
             .setColor('#0099ff')
             .setDescription(`Profile Details for <@${userId}>`)
@@ -54,7 +106,10 @@ module.exports = class ViewProfileSlashCommand extends SlashCommand {
                 { name: 'Bio', value: userProfile.bio || 'Not set', inline: true },
                 { name: 'Timezone', value: userProfile.timezone || 'Not set', inline: true },
                 { name: 'Active Hours', value: userProfile.activeHours || 'Not set', inline: true },
-                { name: 'Portfolio', value: userProfile.portfolio ? userProfile.portfolio : 'Not set', inline: true }
+                { name: 'Portfolio', value: userProfile.portfolio ? userProfile.portfolio : 'Not set', inline: true },
+                { name: 'Avg Response Time', value: userResponseTime ? `${convertMsToSeconds(userResponseTime)} seconds` : 'No data', inline: true },
+                { name: 'Avg Resolution Time', value: userResolutionTime ? `${convertMsToSeconds(userResolutionTime)} seconds` : 'No data', inline: true },
+                { name: 'Avg Feedback', value: userFeedback ? `${userFeedback.toFixed(1)}/5` : 'No data', inline: true }
             )
             .setTimestamp()
             .setFooter({ text: 'User Profile', iconURL: interaction.guild.iconURL() || '' });
@@ -64,4 +119,8 @@ module.exports = class ViewProfileSlashCommand extends SlashCommand {
             ephemeral: true,
         });
     }
+};
+
+const convertMsToSeconds = (ms) => {
+    return (ms / 1000).toFixed(2);
 };
