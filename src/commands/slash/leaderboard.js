@@ -10,14 +10,15 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
         const name = 'leaderboard';
         super(client, {
             ...options,
-            description: 'Displays user leaderboard based on response or resolution times.',
+            description: 'Displays user leaderboard based on response, resolution times, or feedback.',
             dmPermission: false,
             name,
             options: [
                 {
                     choices: [
                         { name: 'Response Time', value: 'response' },
-                        { name: 'Resolution Time', value: 'resolve' }
+                        { name: 'Resolution Time', value: 'resolve' },
+                        { name: 'Avg Feedback', value: 'feedback' }
                     ],
                     description: 'The type of leaderboard',
                     name: 'type',
@@ -41,20 +42,19 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
         const fetchStats = async () => {
             try {
-				const guild = await client.prisma.guild.findUnique({
-					include: {
-						tickets: {
-							select: {
-								claimedById: true,
-								closedAt: true,
-								createdAt: true,
-								firstResponseAt: true,
-							},
-						},
-					},
-					where: { id: TARGET_GUILD_ID },
-				});
-
+                const guild = await client.prisma.guild.findUnique({
+                    include: {
+                        tickets: {
+                            select: {
+                                claimedById: true,
+                                closedAt: true,
+                                createdAt: true,
+                                firstResponseAt: true,
+                            },
+                        },
+                    },
+                    where: { id: TARGET_GUILD_ID },
+                });
 
                 const closedTickets = guild.tickets.filter(t => t.firstResponseAt && t.closedAt);
 
@@ -68,26 +68,68 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
             }
         };
 
-        const stats = await fetchStats();
+        const fetchFeedbackStats = async () => {
+            try {
+                const rows = await client.prisma.feedback.findMany({
+                    select: {
+                        rating: true,
+                        userId: true
+                    },
+                    where: {
+                        guildId: TARGET_GUILD_ID
+                    }
+                });
 
-        if (!stats) {
+                const feedbackStats = {};
+                rows.forEach(row => {
+                    if (!feedbackStats[row.userId]) {
+                        feedbackStats[row.userId] = { totalRating: 0, count: 0 };
+                    }
+                    feedbackStats[row.userId].totalRating += row.rating;
+                    feedbackStats[row.userId].count++;
+                });
+
+                const avgFeedbackPerUser = {};
+                Object.keys(feedbackStats).forEach(userId => {
+                    avgFeedbackPerUser[userId] = feedbackStats[userId].totalRating / feedbackStats[userId].count;
+                });
+
+                return avgFeedbackPerUser;
+            } catch (error) {
+                client.log.error('Error fetching feedback stats:', error);
+                return null;
+            }
+        };
+
+        const stats = await fetchStats();
+        const feedbackStats = await fetchFeedbackStats();
+
+        if (!stats && !feedbackStats) {
             await interaction.editReply('An error occurred while fetching stats. Please try again later.');
             return;
         }
 
-        const { avgResolutionTimePerUser, avgResponseTimePerUser } = stats;
+        const { avgResolutionTimePerUser, avgResponseTimePerUser } = stats || {};
 
         const createLeaderboardEmbed = async (type) => {
             const embed = new EmbedBuilder()
-                .setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : 'Resolution Time'}`)
+                .setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : type === 'resolve' ? 'Resolution Time' : 'Avg Feedback'}`)
                 .setColor(0x00AE86)
                 .setTimestamp();
 
-            const userStats = type === 'response' ? avgResponseTimePerUser : avgResolutionTimePerUser;
+            let userStats;
+            if (type === 'response') {
+                userStats = avgResponseTimePerUser;
+            } else if (type === 'resolve') {
+                userStats = avgResolutionTimePerUser;
+            } else if (type === 'feedback') {
+                userStats = feedbackStats;
+            }
+
             const sortedUsers = Object.keys(userStats)
-                .map(userId => ({ time: userStats[userId], userId }))
-                .filter(user => user.time !== undefined)
-                .sort((a, b) => a.time - b.time)
+                .map(userId => ({ stat: userStats[userId], userId }))
+                .filter(user => user.stat !== undefined)
+                .sort((a, b) => type === 'feedback' ? b.stat - a.stat : a.stat - b.stat)
                 .slice(0, 10);
 
             if (sortedUsers.length === 0) {
@@ -101,7 +143,9 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
                         embed.addFields({
                             inline: false,
                             name: `#${index + 1} - ${username}`,
-                            value: `${type === 'response' ? 'Avg Response Time' : 'Avg Resolution Time'}: ${convertMsToSeconds(user.time)} seconds`,
+                            value: `${type === 'response' ? 'Avg Response Time' : type === 'resolve' ? 'Avg Resolution Time' : 'Avg Feedback'}: ${
+                                type === 'feedback' ? `${user.stat.toFixed(1)}/5` : `${convertMsToSeconds(user.stat)} seconds`
+                            }`,
                         });
                     } catch (error) {
                         client.log.error(`Could not fetch user with ID ${user.userId}:`, error);
