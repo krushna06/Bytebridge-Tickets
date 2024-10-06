@@ -15,14 +15,14 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
             name,
             options: [
                 {
-                    name: 'type',
-                    type: 3,
-                    description: 'The type of leaderboard',
-                    required: true,
                     choices: [
                         { name: 'Response Time', value: 'response' },
                         { name: 'Resolution Time', value: 'resolve' }
-                    ]
+                    ],
+                    description: 'The type of leaderboard',
+                    name: 'type',
+                    required: true,
+                    type: 3
                 }
             ],
         });
@@ -46,10 +46,10 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
                     include: {
                         tickets: {
                             select: {
+                                claimedById: true,
                                 closedAt: true,
                                 createdAt: true,
                                 firstResponseAt: true,
-                                claimedById: true,
                             },
                         },
                     },
@@ -77,40 +77,39 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
         const { avgResolutionTimePerUser, avgResponseTimePerUser } = stats;
 
         const createLeaderboardEmbed = async (type) => {
-			const embed = new EmbedBuilder()
-				.setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : 'Resolution Time'}`)
-				.setColor(0x00AE86)
-				.setTimestamp();
+            const embed = new EmbedBuilder()
+                .setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : 'Resolution Time'}`)
+                .setColor(0x00AE86)
+                .setTimestamp();
 
-			const userStats = type === 'response' ? avgResponseTimePerUser : avgResolutionTimePerUser;
-			const sortedUsers = Object.keys(userStats)
-				.map(userId => ({ userId, time: userStats[userId] }))
-				.filter(user => user.time !== undefined)
-				.sort((a, b) => a.time - b.time)
-				.slice(0, 10);
+            const userStats = type === 'response' ? avgResponseTimePerUser : avgResolutionTimePerUser;
+            const sortedUsers = Object.keys(userStats)
+                .map(userId => ({ time: userStats[userId], userId }))
+                .filter(user => user.time !== undefined)
+                .sort((a, b) => a.time - b.time)
+                .slice(0, 10);
 
-			if (sortedUsers.length === 0) {
-				embed.setDescription('No data available for this leaderboard.');
-			} else {
-				for (const [index, user] of sortedUsers.entries()) {
-					try {
-						const userMember = await interaction.guild.members.fetch(user.userId);
-						const username = userMember.user.username;
+            if (sortedUsers.length === 0) {
+                embed.setDescription('No data available for this leaderboard.');
+            } else {
+                for (const [index, user] of sortedUsers.entries()) {
+                    try {
+                        const userMember = await interaction.guild.members.fetch(user.userId);
+                        const username = userMember.user.username;
 
-						embed.addFields({
-							name: `#${index + 1} - ${username}`,
-							value: `${type === 'response' ? 'Avg Response Time' : 'Avg Resolution Time'}: ${convertMsToSeconds(user.time)} seconds`,
-							inline: false,
-						});
-					} catch (error) {
-						console.error(`Could not fetch user with ID ${user.userId}:`, error);
-					}
-				}
-			}
+                        embed.addFields({
+                            inline: false,
+                            name: `#${index + 1} - ${username}`,
+                            value: `${type === 'response' ? 'Avg Response Time' : 'Avg Resolution Time'}: ${convertMsToSeconds(user.time)} seconds`,
+                        });
+                    } catch (error) {
+                        client.log.error(`Could not fetch user with ID ${user.userId}:`, error);
+                    }
+                }
+            }
 
-			return embed;
-		};
-
+            return embed;
+        };
 
         const leaderboardEmbed = await createLeaderboardEmbed(leaderboardType);
 
