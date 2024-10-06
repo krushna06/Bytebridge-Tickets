@@ -41,19 +41,20 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
         const fetchStats = async () => {
             try {
-                const guild = await client.prisma.guild.findUnique({
-                    where: { id: TARGET_GUILD_ID },
-                    include: {
-                        tickets: {
-                            select: {
-                                claimedById: true,
-                                closedAt: true,
-                                createdAt: true,
-                                firstResponseAt: true,
-                            },
-                        },
-                    },
-                });
+				const guild = await client.prisma.guild.findUnique({
+					include: {
+						tickets: {
+							select: {
+								claimedById: true,
+								closedAt: true,
+								createdAt: true,
+								firstResponseAt: true,
+							},
+						},
+					},
+					where: { id: TARGET_GUILD_ID },
+				});
+
 
                 const closedTickets = guild.tickets.filter(t => t.firstResponseAt && t.closedAt);
 
