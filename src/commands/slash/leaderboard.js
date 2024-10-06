@@ -10,40 +10,38 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
         const name = 'leaderboard';
         super(client, {
             ...options,
-            description: 'Displays user leaderboard or individual stats based on response, resolution times, or feedback.',
+            description: 'Displays leaderboard, overall stats, or specific user stats.',
             dmPermission: false,
             name,
             options: [
                 {
                     name: 'type',
-                    description: 'The type of leaderboard',
+                    description: 'The type of leaderboard or stats to display',
                     required: true,
-                    type: 3, // String option
+                    type: 3,
                     choices: [
                         { name: 'Response Time', value: 'response' },
                         { name: 'Resolution Time', value: 'resolve' },
-                        { name: 'Avg Feedback', value: 'feedback' }
+                        { name: 'Avg Feedback', value: 'feedback' },
+                        { name: 'Overall Stats', value: 'overall' }
                     ]
                 },
                 {
                     name: 'member',
                     description: 'Specific member to show stats for (optional)',
                     required: false,
-                    type: 6 // User option
+                    type: 6
                 }
             ],
         });
     }
 
-    /**
-     * @param {import("discord.js").ChatInputCommandInteraction} interaction
-     */
     async run(interaction) {
         const client = this.client;
         const leaderboardType = interaction.options.getString('type');
         const member = interaction.options.getUser('member');
 
-        await interaction.reply({ content: 'Fetching leaderboard or user stats...', ephemeral: false });
+        await interaction.reply({ content: 'Fetching leaderboard or stats...', ephemeral: false });
 
         const TARGET_GUILD_ID = '877062059966206002';
 
@@ -118,11 +116,50 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
         const { avgResolutionTimePerUser, avgResponseTimePerUser } = stats || {};
 
+        const calculateOverallStats = () => {
+            const totalResponseTime = Object.values(avgResponseTimePerUser).reduce((acc, time) => acc + time, 0);
+            const avgGuildResponseTime = totalResponseTime / Object.values(avgResponseTimePerUser).length;
+
+            const totalResolutionTime = Object.values(avgResolutionTimePerUser).reduce((acc, time) => acc + time, 0);
+            const avgGuildResolutionTime = totalResolutionTime / Object.values(avgResponseTimePerUser).length;
+
+            const totalFeedbackRating = Object.values(feedbackStats).reduce((acc, rating) => acc + rating, 0);
+            const avgGuildFeedback = totalFeedbackRating / Object.values(feedbackStats).length;
+
+            return {
+                avgGuildResponseTime,
+                avgGuildResolutionTime,
+                avgGuildFeedback
+            };
+        };
+
         const createLeaderboardEmbed = async (type, user) => {
             const embed = new EmbedBuilder()
-                .setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : type === 'resolve' ? 'Resolution Time' : 'Avg Feedback'}`)
+                .setTitle(`Stats - ${type === 'response' ? 'Response Time' : type === 'resolve' ? 'Resolution Time' : type === 'feedback' ? 'Avg Feedback' : 'Overall Stats'}`)
                 .setColor(0x00AE86)
                 .setTimestamp();
+
+            if (type === 'overall') {
+                const { avgGuildResponseTime, avgGuildResolutionTime, avgGuildFeedback } = calculateOverallStats();
+                embed.addFields(
+                    {
+                        name: 'Average Response Time',
+                        value: `${convertMsToSeconds(avgGuildResponseTime)} seconds`,
+                        inline: true
+                    },
+                    {
+                        name: 'Average Resolution Time',
+                        value: `${convertMsToSeconds(avgGuildResolutionTime)} seconds`,
+                        inline: true
+                    },
+                    {
+                        name: 'Average Feedback',
+                        value: `${avgGuildFeedback.toFixed(1)}/5`,
+                        inline: true
+                    }
+                );
+                return embed;
+            }
 
             let userStats;
             if (type === 'response') {
@@ -134,15 +171,30 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
             }
 
             if (user) {
-                const stat = userStats[user.id];
-                if (!stat) {
-                    embed.setDescription(`No data available for ${user.username} in the ${type} leaderboard.`);
+                const userResponseTime = avgResponseTimePerUser[user.id];
+                const userResolutionTime = avgResolutionTimePerUser[user.id];
+                const userFeedback = feedbackStats[user.id];
+
+                if (!userResponseTime && !userResolutionTime && !userFeedback) {
+                    embed.setDescription(`No data available for ${user.username}.`);
                 } else {
-                    embed.addFields({
-                        inline: false,
-                        name: `${user.username}'s Stats`,
-                        value: `${type === 'feedback' ? `Avg Feedback: ${stat.toFixed(1)}/5` : `Avg ${type === 'response' ? 'Response' : 'Resolution'} Time: ${convertMsToSeconds(stat)} seconds`}`,
-                    });
+                    embed.addFields(
+                        {
+                            name: 'Avg Response Time',
+                            value: userResponseTime ? `${convertMsToSeconds(userResponseTime)} seconds` : 'No data',
+                            inline: true
+                        },
+                        {
+                            name: 'Avg Resolution Time',
+                            value: userResolutionTime ? `${convertMsToSeconds(userResolutionTime)} seconds` : 'No data',
+                            inline: true
+                        },
+                        {
+                            name: 'Avg Feedback',
+                            value: userFeedback ? `${userFeedback.toFixed(1)}/5` : 'No data',
+                            inline: true
+                        }
+                    );
                 }
             } else {
                 const sortedUsers = Object.keys(userStats)
