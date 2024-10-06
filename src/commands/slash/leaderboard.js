@@ -121,7 +121,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
             const avgGuildResponseTime = totalResponseTime / Object.values(avgResponseTimePerUser).length;
 
             const totalResolutionTime = Object.values(avgResolutionTimePerUser).reduce((acc, time) => acc + time, 0);
-            const avgGuildResolutionTime = totalResolutionTime / Object.values(avgResponseTimePerUser).length;
+            const avgGuildResolutionTime = totalResolutionTime / Object.values(avgResolutionTimePerUser).length;
 
             const totalFeedbackRating = Object.values(feedbackStats).reduce((acc, rating) => acc + rating, 0);
             const avgGuildFeedback = totalFeedbackRating / Object.values(feedbackStats).length;
@@ -135,29 +135,59 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
         const createLeaderboardEmbed = async (type, user) => {
             const embed = new EmbedBuilder()
-                .setTitle(`Stats - ${type === 'response' ? 'Response Time' : type === 'resolve' ? 'Resolution Time' : type === 'feedback' ? 'Avg Feedback' : 'Overall Stats'}`)
                 .setColor(0x00AE86)
                 .setTimestamp();
 
             if (type === 'overall') {
-                const { avgGuildResponseTime, avgGuildResolutionTime, avgGuildFeedback } = calculateOverallStats();
-                embed.addFields(
-                    {
-                        name: 'Average Response Time',
-                        value: `${convertMsToSeconds(avgGuildResponseTime)} seconds`,
-                        inline: true
-                    },
-                    {
-                        name: 'Average Resolution Time',
-                        value: `${convertMsToSeconds(avgGuildResolutionTime)} seconds`,
-                        inline: true
-                    },
-                    {
-                        name: 'Average Feedback',
-                        value: `${avgGuildFeedback.toFixed(1)}/5`,
-                        inline: true
+                if (user) {
+                    const userResponseTime = avgResponseTimePerUser[user.id];
+                    const userResolutionTime = avgResolutionTimePerUser[user.id];
+                    const userFeedback = feedbackStats[user.id];
+
+                    embed.setTitle(`Overall Stats | ${user.username}`);
+
+                    if (!userResponseTime && !userResolutionTime && !userFeedback) {
+                        embed.setDescription(`No data available for ${user.username}.`);
+                    } else {
+                        embed.addFields(
+                            {
+                                name: 'Avg Response Time',
+                                value: userResponseTime ? `${convertMsToSeconds(userResponseTime)} seconds` : 'No data',
+                                inline: true
+                            },
+                            {
+                                name: 'Avg Resolution Time',
+                                value: userResolutionTime ? `${convertMsToSeconds(userResolutionTime)} seconds` : 'No data',
+                                inline: true
+                            },
+                            {
+                                name: 'Avg Feedback',
+                                value: userFeedback ? `${userFeedback.toFixed(1)}/5` : 'No data',
+                                inline: true
+                            }
+                        );
                     }
-                );
+                } else {
+                    embed.setTitle('Overall Stats');
+                    const { avgGuildResponseTime, avgGuildResolutionTime, avgGuildFeedback } = calculateOverallStats();
+                    embed.addFields(
+                        {
+                            name: 'Average Response Time',
+                            value: `${convertMsToSeconds(avgGuildResponseTime)} seconds`,
+                            inline: true
+                        },
+                        {
+                            name: 'Average Resolution Time',
+                            value: `${convertMsToSeconds(avgGuildResolutionTime)} seconds`,
+                            inline: true
+                        },
+                        {
+                            name: 'Average Feedback',
+                            value: `${avgGuildFeedback.toFixed(1)}/5`,
+                            inline: true
+                        }
+                    );
+                }
                 return embed;
             }
 
@@ -170,33 +200,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
                 userStats = feedbackStats;
             }
 
-            if (user) {
-                const userResponseTime = avgResponseTimePerUser[user.id];
-                const userResolutionTime = avgResolutionTimePerUser[user.id];
-                const userFeedback = feedbackStats[user.id];
-
-                if (!userResponseTime && !userResolutionTime && !userFeedback) {
-                    embed.setDescription(`No data available for ${user.username}.`);
-                } else {
-                    embed.addFields(
-                        {
-                            name: 'Avg Response Time',
-                            value: userResponseTime ? `${convertMsToSeconds(userResponseTime)} seconds` : 'No data',
-                            inline: true
-                        },
-                        {
-                            name: 'Avg Resolution Time',
-                            value: userResolutionTime ? `${convertMsToSeconds(userResolutionTime)} seconds` : 'No data',
-                            inline: true
-                        },
-                        {
-                            name: 'Avg Feedback',
-                            value: userFeedback ? `${userFeedback.toFixed(1)}/5` : 'No data',
-                            inline: true
-                        }
-                    );
-                }
-            } else {
+            if (!user) {
                 const sortedUsers = Object.keys(userStats)
                     .map(userId => ({ stat: userStats[userId], userId }))
                     .filter(user => user.stat !== undefined)
