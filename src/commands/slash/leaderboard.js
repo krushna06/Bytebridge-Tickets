@@ -10,20 +10,26 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
         const name = 'leaderboard';
         super(client, {
             ...options,
-            description: 'Displays user leaderboard based on response, resolution times, or feedback.',
+            description: 'Displays user leaderboard or individual stats based on response, resolution times, or feedback.',
             dmPermission: false,
             name,
             options: [
                 {
+                    name: 'type',
+                    description: 'The type of leaderboard',
+                    required: true,
+                    type: 3, // String option
                     choices: [
                         { name: 'Response Time', value: 'response' },
                         { name: 'Resolution Time', value: 'resolve' },
                         { name: 'Avg Feedback', value: 'feedback' }
-                    ],
-                    description: 'The type of leaderboard',
-                    name: 'type',
-                    required: true,
-                    type: 3
+                    ]
+                },
+                {
+                    name: 'member',
+                    description: 'Specific member to show stats for (optional)',
+                    required: false,
+                    type: 6 // User option
                 }
             ],
         });
@@ -35,8 +41,9 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
     async run(interaction) {
         const client = this.client;
         const leaderboardType = interaction.options.getString('type');
+        const member = interaction.options.getUser('member');
 
-        await interaction.reply({ content: 'Fetching leaderboard...', ephemeral: false });
+        await interaction.reply({ content: 'Fetching leaderboard or user stats...', ephemeral: false });
 
         const TARGET_GUILD_ID = '877062059966206002';
 
@@ -111,7 +118,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
         const { avgResolutionTimePerUser, avgResponseTimePerUser } = stats || {};
 
-        const createLeaderboardEmbed = async (type) => {
+        const createLeaderboardEmbed = async (type, user) => {
             const embed = new EmbedBuilder()
                 .setTitle(`User Leaderboard - ${type === 'response' ? 'Response Time' : type === 'resolve' ? 'Resolution Time' : 'Avg Feedback'}`)
                 .setColor(0x00AE86)
@@ -126,29 +133,40 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
                 userStats = feedbackStats;
             }
 
-            const sortedUsers = Object.keys(userStats)
-                .map(userId => ({ stat: userStats[userId], userId }))
-                .filter(user => user.stat !== undefined)
-                .sort((a, b) => type === 'feedback' ? b.stat - a.stat : a.stat - b.stat)
-                .slice(0, 10);
-
-            if (sortedUsers.length === 0) {
-                embed.setDescription('No data available for this leaderboard.');
+            if (user) {
+                const stat = userStats[user.id];
+                if (!stat) {
+                    embed.setDescription(`No data available for ${user.username} in the ${type} leaderboard.`);
+                } else {
+                    embed.addFields({
+                        inline: false,
+                        name: `${user.username}'s Stats`,
+                        value: `${type === 'feedback' ? `Avg Feedback: ${stat.toFixed(1)}/5` : `Avg ${type === 'response' ? 'Response' : 'Resolution'} Time: ${convertMsToSeconds(stat)} seconds`}`,
+                    });
+                }
             } else {
-                for (const [index, user] of sortedUsers.entries()) {
-                    try {
-                        const userMember = await interaction.guild.members.fetch(user.userId);
-                        const username = userMember.user.username;
+                const sortedUsers = Object.keys(userStats)
+                    .map(userId => ({ stat: userStats[userId], userId }))
+                    .filter(user => user.stat !== undefined)
+                    .sort((a, b) => type === 'feedback' ? b.stat - a.stat : a.stat - b.stat)
+                    .slice(0, 10);
 
-                        embed.addFields({
-                            inline: false,
-                            name: `#${index + 1} - ${username}`,
-                            value: `${type === 'response' ? 'Avg Response Time' : type === 'resolve' ? 'Avg Resolution Time' : 'Avg Feedback'}: ${
-                                type === 'feedback' ? `${user.stat.toFixed(1)}/5` : `${convertMsToSeconds(user.stat)} seconds`
-                            }`,
-                        });
-                    } catch (error) {
-                        client.log.error(`Could not fetch user with ID ${user.userId}:`, error);
+                if (sortedUsers.length === 0) {
+                    embed.setDescription('No data available for this leaderboard.');
+                } else {
+                    for (const [index, userEntry] of sortedUsers.entries()) {
+                        try {
+                            const userMember = await interaction.guild.members.fetch(userEntry.userId);
+                            const username = userMember.user.username;
+
+                            embed.addFields({
+                                inline: false,
+                                name: `#${index + 1} - ${username}`,
+                                value: `${type === 'feedback' ? `Avg Feedback: ${userEntry.stat.toFixed(1)}/5` : `Avg ${type === 'response' ? 'Response' : 'Resolution'} Time: ${convertMsToSeconds(userEntry.stat)} seconds`}`,
+                            });
+                        } catch (error) {
+                            client.log.error(`Could not fetch user with ID ${userEntry.userId}:`, error);
+                        }
                     }
                 }
             }
@@ -156,7 +174,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
             return embed;
         };
 
-        const leaderboardEmbed = await createLeaderboardEmbed(leaderboardType);
+        const leaderboardEmbed = await createLeaderboardEmbed(leaderboardType, member);
 
         await interaction.editReply({ embeds: [leaderboardEmbed] });
     }
