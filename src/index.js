@@ -1,4 +1,7 @@
 /* eslint-disable no-console */
+process.env.TZ = 'Asia/Kolkata';
+const date = new Date();
+console.log(date.toLocaleString());
 
 const pkg = require('../package.json');
 const banner = require('./lib/banner');
