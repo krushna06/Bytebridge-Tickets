@@ -26,7 +26,6 @@ if (base_dir !== cwd) {
 	}
 	console.log('  Base directory:    ' + colours.gray(base_dir));
 	console.log('  Current directory: ' + colours.gray(cwd));
-	console.log(colours.blueBright('  Learn more at https://lnk.earth/dt-cwd.'));
 }
 
 // this could be done first, but then there would be no banner :(
