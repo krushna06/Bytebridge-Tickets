@@ -53,11 +53,11 @@ module.exports = class CloseSlashCommand extends SlashCommand {
 	async run(interaction) {
 		/** @type {import("client")} */
 		const client = this.client;
-		const reason = interaction.options.getString('reason');
-		const premadeReasons = interaction.options.getString('premade_reasons');
+		// const reason = interaction.options.getString('reason');
+		// const premadeReasons = interaction.options.getString('premade_reasons');
 
-		console.log('Reason:', reason);
-		console.log('Predefined Reason:', premadeReasons);
+		// console.log('Reason:', reason);
+		// console.log('Predefined Reason:', premadeReasons);
 
 		await client.tickets.beforeRequestClose(interaction);
 	}
