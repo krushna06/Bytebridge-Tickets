@@ -60,29 +60,75 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 			}
 		};
 
+		const fetchFeedbackCounts = async () => {
+			try {
+				const feedbackCounts = await client.prisma.feedback.groupBy({
+					by: ['rating'],
+					where: { guildId: TARGET_GUILD_ID },
+					_count: { rating: true },
+				});
+
+				const counts = {};
+				for (const feedback of feedbackCounts) {
+					counts[feedback.rating] = feedback._count.rating;
+				}
+
+				for (let i = 1; i <= 5; i++) {
+					if (!counts[i]) {
+						counts[i] = 0;
+					}
+				}
+
+				return counts;
+			} catch (error) {
+				client.log.error('Error fetching feedback counts:', error);
+				return null;
+			}
+		};
+
 		const convertMsToSeconds = ms => (ms / 1000).toFixed(2);
 
-		const createEmbed = (avgResolutionTime, avgResponseTime, totalTickets) => new EmbedBuilder()
-			.setTitle('Ticket Statistics')
-			.setColor(0x00AE86)
-			.addFields(
-				{
-					name: 'Average Resolution Time',
-					value: `${convertMsToSeconds(avgResolutionTime)} seconds`,
-					inline: true,
-				},
-				{
-					name: 'Average Response Time',
-					value: `${convertMsToSeconds(avgResponseTime)} seconds`,
-					inline: true,
-				},
-				{
-					name: 'Total Tickets Closed',
-					value: `${totalTickets}`,
-					inline: true,
-				},
-			)
-			.setTimestamp();
+		const createEmbed = (avgResolutionTime, avgResponseTime, totalTickets, feedbackCounts) => {
+			const feedbackList = [
+				`1-Star Feedback: ${feedbackCounts[1]}`,
+				`2-Star Feedback: ${feedbackCounts[2]}`,
+				`3-Star Feedback: ${feedbackCounts[3]}`,
+				`4-Star Feedback: ${feedbackCounts[4]}`,
+				`5-Star Feedback: ${feedbackCounts[5]}`,
+			].join('\n');
+
+			return new EmbedBuilder()
+				.setTitle('Ticket and Feedback Statistics')
+				.setColor(0x00AE86)
+				.addFields(
+					{
+						name: 'Average Resolution Time',
+						value: `${convertMsToSeconds(avgResolutionTime)} seconds`,
+						inline: true,
+					},
+					{
+						name: 'Average Response Time',
+						value: `${convertMsToSeconds(avgResponseTime)} seconds`,
+						inline: true,
+					},
+					{
+						name: 'Total Tickets Closed',
+						value: `${totalTickets}`,
+						inline: true,
+					},
+					{
+						name: '\u200B',
+						value: '\u200B',
+						inline: false,
+					},
+					{
+						name: 'Feedback Statistics',
+						value: feedbackList,
+						inline: false,
+					},
+				)
+				.setTimestamp();
+		};
 
 		const initialStats = await fetchStats();
 		if (!initialStats) {
@@ -90,14 +136,20 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 			return;
 		}
 
+		const feedbackCounts = await fetchFeedbackCounts();
+		if (feedbackCounts === null) {
+			await interaction.editReply('An error occurred while fetching feedback stats. Please try again later.');
+			return;
+		}
+
 		let statsMessage;
 		try {
 			const guildChannel = await client.channels.fetch('1292032641125843005');
 			statsMessage = await guildChannel.messages.fetch({ limit: 10 }).then(messages =>
-				messages.find(msg => msg.embeds.length > 0 && msg.embeds[0].title === 'Ticket Statistics'),
+				messages.find(msg => msg.embeds.length > 0 && msg.embeds[0].title === 'Ticket and Feedback Statistics'),
 			);
 			if (statsMessage) {
-				await statsMessage.edit({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets)] });
+				await statsMessage.edit({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, feedbackCounts)] });
 			}
 		} catch (error) {
 			client.log.error('Could not fetch existing stats message:', error);
@@ -105,15 +157,16 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 
 		if (!statsMessage) {
 			const guildChannel = await client.channels.fetch('1292032641125843005');
-			statsMessage = await guildChannel.send({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets)] });
+			statsMessage = await guildChannel.send({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, feedbackCounts)] });
 		}
 
 		const updateInterval = setInterval(async () => {
 			const updatedStats = await fetchStats();
 			if (updatedStats) {
-				await statsMessage.edit({ embeds: [createEmbed(updatedStats.avgResolutionTime, updatedStats.avgResponseTime, updatedStats.totalTickets)] });
+				const updatedFeedbackCounts = await fetchFeedbackCounts();
+				await statsMessage.edit({ embeds: [createEmbed(updatedStats.avgResolutionTime, updatedStats.avgResponseTime, updatedStats.totalTickets, updatedFeedbackCounts)] });
 			}
-		}, 60000);  // 1 minute
+		}, 60000);
 
 		interaction.channel.awaitMessages({
 			filter: m => m.author.id === interaction.user.id,
