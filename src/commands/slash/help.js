@@ -48,11 +48,11 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 			? [
 				`> [${getMessage('commands.slash.help.response.links.feedback')}](https://discord.gg/gWRhsZHHeb)`,
 				`> [${getMessage('commands.slash.help.response.links.support')}](https://discord.gg/gWRhsZHHeb)`,
-				`> ${getMessage('commands.slash.help.response.settings')}: ${process.env.HTTP_EXTERNAL}/settings`
+				`> ${getMessage('commands.slash.help.response.settings')}: ${process.env.HTTP_EXTERNAL}/settings`,
 			].join('\n')
 			: '';
 
-		let description = staff
+		const description = staff
 			? `**Bytebridge Limited v${version} by nostep.**\n\n${links}\n\n${commands}`
 			: getMessage('commands.slash.help.response.description', { command: `</new:${client.application.commands.cache.find(c => c.name === 'new').id}>` }) + `\n\n${commands}`;
 
@@ -64,11 +64,9 @@ module.exports = class ClaimSlashCommand extends SlashCommand {
 		})
 			.setColor(settings.primaryColour)
 			.setTitle(index === 0 ? getMessage('commands.slash.help.title') : null)
-			.setDescription(chunk)
+			.setDescription(chunk),
 		);
 
-		interaction.editReply({
-			embeds: embeds,
-		});
+		interaction.editReply({ embeds: embeds });
 	}
 };
