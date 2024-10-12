@@ -172,7 +172,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
 
         let statsMessage;
         try {
-            const guildChannel = await client.channels.fetch('899659621097152563');
+            const guildChannel = await client.channels.fetch('1292032641125843005');
             statsMessage = await guildChannel.messages.fetch({ limit: 10 }).then(messages =>
                 messages.find(msg => msg.embeds.length > 0 && msg.embeds[0].title === 'Ticket Statistics and User Profiles')
             );
@@ -187,7 +187,7 @@ module.exports = class StatsPanelSlashCommand extends SlashCommand {
         }
 
         if (!statsMessage) {
-            const guildChannel = await client.channels.fetch('899659621097152563');
+            const guildChannel = await client.channels.fetch('1292032641125843005');
             statsMessage = await guildChannel.send({
                 embeds: [await createEmbed(initialStats.avgResolutionTimePerUser, initialStats.avgResponseTimePerUser, initialStats.totalTickets, profiles)],
             });
