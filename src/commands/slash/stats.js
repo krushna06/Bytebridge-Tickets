@@ -48,11 +48,17 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				const avgResolutionTime = getAvgResolutionTime(closedTickets);
 				const avgResponseTime = getAvgResponseTime(closedTickets);
 				const totalTickets = closedTickets.length;
+				const totalOpenedTickets = guild.tickets.length;
+				const currentOpen = guild.tickets.filter(t => !t.closedAt).length;
+				const totalClaimed = guild.tickets.filter(t => t.claimedAt).length;
 
 				return {
 					avgResolutionTime,
 					avgResponseTime,
 					totalTickets,
+					totalOpenedTickets,
+					currentOpen,
+					totalClaimed,
 				};
 			} catch (error) {
 				client.log.error('Error fetching stats:', error);
@@ -88,7 +94,7 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 
 		const convertMsToSeconds = ms => (ms / 1000).toFixed(2);
 
-		const createEmbed = (avgResolutionTime, avgResponseTime, totalTickets, feedbackCounts) => {
+		const createEmbed = (avgResolutionTime, avgResponseTime, totalTickets, totalOpenedTickets, currentOpen, totalClaimed, feedbackCounts) => {
 			const feedbackList = [
 				`1-Star Feedback: ${feedbackCounts[1]}`,
 				`2-Star Feedback: ${feedbackCounts[2]}`,
@@ -112,8 +118,23 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 						inline: true,
 					},
 					{
-						name: 'Total Tickets Closed',
+						name: 'Closed Tickets',
 						value: `${totalTickets}`,
+						inline: true,
+					},
+					{
+						name: 'Total Tickets Opened',
+						value: `${totalOpenedTickets}`,
+						inline: true,
+					},
+					{
+						name: 'Current Open',
+						value: `${currentOpen}`,
+						inline: true,
+					},
+					{
+						name: 'Total Tickets Claimed',
+						value: `${totalClaimed}`,
 						inline: true,
 					},
 					{
@@ -149,7 +170,7 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				messages.find(msg => msg.embeds.length > 0 && msg.embeds[0].title === 'Ticket and Feedback Statistics'),
 			);
 			if (statsMessage) {
-				await statsMessage.edit({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, feedbackCounts)] });
+				await statsMessage.edit({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, initialStats.totalOpenedTickets, initialStats.currentOpen, initialStats.totalClaimed, feedbackCounts)] });
 			}
 		} catch (error) {
 			client.log.error('Could not fetch existing stats message:', error);
@@ -157,14 +178,14 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 
 		if (!statsMessage) {
 			const guildChannel = await client.channels.fetch('1292032641125843005');
-			statsMessage = await guildChannel.send({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, feedbackCounts)] });
+			statsMessage = await guildChannel.send({ embeds: [createEmbed(initialStats.avgResolutionTime, initialStats.avgResponseTime, initialStats.totalTickets, initialStats.totalOpenedTickets, initialStats.currentOpen, initialStats.totalClaimed, feedbackCounts)] });
 		}
 
 		const updateInterval = setInterval(async () => {
 			const updatedStats = await fetchStats();
 			if (updatedStats) {
 				const updatedFeedbackCounts = await fetchFeedbackCounts();
-				await statsMessage.edit({ embeds: [createEmbed(updatedStats.avgResolutionTime, updatedStats.avgResponseTime, updatedStats.totalTickets, updatedFeedbackCounts)] });
+				await statsMessage.edit({ embeds: [createEmbed(updatedStats.avgResolutionTime, updatedStats.avgResponseTime, updatedStats.totalTickets, updatedStats.totalOpenedTickets, updatedStats.currentOpen, updatedStats.totalClaimed, updatedFeedbackCounts)] });
 			}
 		}, 60000);
 
