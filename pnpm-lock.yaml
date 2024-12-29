@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@discord-tickets/settings':
+      '@bytebridge-limited/settings':
         specifier: ^2.2.4
         version: 2.2.4(svelte@4.2.18)
       '@eartharoid/dbf':
@@ -238,7 +238,7 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@discord-tickets/settings@2.2.4':
+  '@bytebridge-limited/settings@2.2.4':
     resolution: {integrity: sha512-BPX0REY3MnEi5sZdnUy+T6zIPktjGgbH2LfMs6gyUE1DG5+ViCGQckDvHcur3/XgWOhjhVhVzxnaQesP7eFP2g==}
 
   '@discordjs/builders@1.9.0':
@@ -2654,7 +2654,7 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@discord-tickets/settings@2.2.4(svelte@4.2.18)':
+  '@bytebridge-limited/settings@2.2.4(svelte@4.2.18)':
     dependencies:
       '@fortawesome/fontawesome-free': 6.6.0
       '@skyra/discord-components-core': 3.6.1
