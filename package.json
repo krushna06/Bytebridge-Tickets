@@ -5,6 +5,8 @@
 	"description": "A discord tickets bot.",
 	"main": "src/",
 	"scripts": {
+		"bot.export": "node scripts/export.mjs",
+		"bot.import": "node scripts/export.mjs",
 		"keygen": "node scripts/keygen",
 		"lint": "eslint src scripts --fix",
 		"preinstall": "node scripts/preinstall",
