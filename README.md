@@ -1,4 +1,4 @@
-# ByteBridge Limited v1.0.0
+# ByteBridge Limited v1.2.0
 
 Install the packages for the Bot
 - `cd bot`
