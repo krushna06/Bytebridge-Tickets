@@ -272,6 +272,20 @@ commands:
           name: member
       transferred: 📨 {user} has transferred this ticket to {to}.
       transferred_from: 📨 {user} has transferred this ticket from {from} to {to}.
+    stats:
+      name: stats
+      description: View ticket statistics
+      response:
+        title: Ticket Statistics
+        description: Statistics for {guild}
+        fields:
+          total: Total Tickets
+          open: Open Tickets
+          closed: Closed Tickets
+          avg_response: Average Response Time
+          avg_daily: Average Daily Tickets
+          feedback: Overall Feedback Rating
+          staff: Staff Performance (Top 5)
   user:
     create:
       name: Create ticket for user

@@ -34,7 +34,7 @@ async function sendToHouston(client) {
 		_count: true,
 		_sum: { messageCount: true },
 	});
-	const messages = users._sum.messageCount;
+	const messages = users._sum.messageCount || 0;
 	const stats = {
 		activated_users: users._count,
 		arch: process.arch,
