@@ -23,7 +23,7 @@ module.exports = config => {
 	const transports = [
 		new ConsoleTransport({
 			format: log => {
-				const timestamp = dtf.fill('DD/MM/YY HH:mm:ss', log.timestamp);
+				const timestamp = dtf.fill('YYYY-MM-DD HH:mm:ss', log.timestamp);
 				const colour = colours[log.level.name];
 				return format(
 					short(`&f&!7 %s &r ${colour[0]}[%s]&r %s${colour[1]}%s&r`),
@@ -44,7 +44,8 @@ module.exports = config => {
 				directory: config.logs.files.directory,
 				format: '[{timestamp}] [{LEVEL}] ({NAMESPACE}) @{file}:{line}:{column} {content}',
 				level: config.logs.level,
-				name: 'Bytebridge Limited by n0step',
+				name: 'Support Tickets',
+				timestamp: 'YYYY-MM-DD HH:mm:ss',
 			}),
 		);
 	}

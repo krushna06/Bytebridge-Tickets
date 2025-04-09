@@ -36,7 +36,7 @@ model ArchivedMessage {
 
 model ArchivedRole {
     archivedUsers ArchivedUser[]
-    colour        String         @default("5865F2") @db.Char(6) // 7289DA
+    colour        String         @default("5865F2") @db.Char(6) // 7289DA 
     createdAt     DateTime       @default(now())
     name          String
     roleId        String         @db.VarChar(19)
@@ -121,7 +121,7 @@ model Guild {
     createdAt     DateTime   @default(now())
     errorColour   String     @default("Red")
     feedback      Feedback[]
-    footer        String?    @default("Bytebridge Limited by n0step")
+    footer        String?    @default("Support Tickets")
     id            String     @id @db.VarChar(19)
     locale        String     @default("en-GB")
     logChannel    String?    @db.VarChar(19)

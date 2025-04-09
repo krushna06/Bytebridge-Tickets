@@ -103,7 +103,7 @@ CREATE TABLE "guilds" (
     "closeButton" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "errorColour" TEXT NOT NULL DEFAULT 'Red',
-    "footer" TEXT DEFAULT 'Bytebridge Limited by n0step',
+    "footer" TEXT DEFAULT 'Support Tickets',
     "id" VARCHAR(19) NOT NULL,
     "locale" TEXT NOT NULL DEFAULT 'en-GB',
     "logChannel" VARCHAR(19),

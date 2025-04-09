@@ -137,69 +137,174 @@ async function logAdminEvent(client, {
  * @param {string} details.action
 */
 async function logTicketEvent(client, {
-	userId, action, target, diff,
+	userId,
+	action,
+	target,
+	diff,
+	transcriptUrl,
+	directTicket,
 }) {
-	const ticket = await client.tickets.getTicket(target.id);
+
+	// If directTicket is provided, skip "getTicket" call:
+	let ticket;
+	if (directTicket) {
+	ticket = directTicket;
+	} else {
+	// fallback to getTicket if not provided
+	ticket = await client.tickets.getTicket(target.id);
+	}
 	if (!ticket) return;
-	/** @type {import("discord.js").Guild} */
+	
+	// Convert or re-hydrate if they're strings:
+	if (ticket.createdAt && typeof ticket.createdAt === 'string') {
+	ticket.createdAt = new Date(ticket.createdAt);
+	}
+	if (ticket.closedAt && typeof ticket.closedAt === 'string') {
+	ticket.closedAt = new Date(ticket.closedAt);
+	}
+
+	// Basic log channel checks
 	const guild = client.guilds.cache.get(ticket.guild.id);
 	const member = await guild.members.fetch(userId);
-	client.log.info.tickets(`${member.user.tag} ${client.i18n.getMessage('en-GB', `log.ticket.verb.${action}`)} ticket ${target.id}`);
 	if (!ticket.guild.logChannel) return;
 	const channel = client.channels.cache.get(ticket.guild.logChannel);
 	if (!channel) return;
-	const colour = action === 'create'
-		? 'Aqua' : action === 'close'
-			? 'DarkAqua' : action === 'update'
-				? 'Purple' : action === 'claim'
-					? 'LuminousVividPink' : action === 'unclaim'
-						? 'DarkVividPink' : 'Default';
+
 	const getMessage = client.i18n.getLocale(ticket.guild.locale);
+
+	// Build description from i18n
 	const i18nOptions = {
 		user: `<@${member.user.id}>`,
 		verb: getMessage(`log.ticket.verb.${action}`),
 	};
-	const embeds = [
-		new EmbedBuilder()
-			.setColor(colour)
-			.setAuthor({
-				iconURL: member.displayAvatarURL(),
-				name: member.displayName,
-			})
-			.setTitle(getMessage('log.ticket.title', i18nOptions))
-			.setDescription(getMessage('log.ticket.description', i18nOptions))
-			.addFields([
-				{
-					name: getMessage('log.ticket.ticket'),
-					value: target.name ? `${target.name} (\`${target.id}\`)` : target.id,
-				},
-			]),
+	const descriptionLines = [
+		getMessage('log.ticket.description', i18nOptions),
 	];
 
+	// Determine embed color based on action
+	const colour =
+		action === 'create' ? 'Aqua'
+		: action === 'close' ? 'DarkAqua'
+		: action === 'update' ? 'Purple'
+		: action === 'claim'  ? 'LuminousVividPink'
+		: action === 'unclaim' ? 'DarkVividPink'
+		: 'Default';
+
+	// Build embed
+	const embed = new EmbedBuilder()
+		.setColor(colour)
+		.setAuthor({
+			iconURL: member.displayAvatarURL(),
+			name: member.displayName,
+		})
+		.setTitle(getMessage('log.ticket.title', i18nOptions))
+		.setDescription(descriptionLines.join('\n\n'))
+		.addFields([
+			{
+			  name: 'Ticket Details',
+			  value: target.name
+				? `${target.name} (\`${target.id}\`)`
+				: target.id,
+			},
+		  ]);
+
+	// If closing, add opened by/date, closed by/date, and @mentions
+	const openedAt = ticket.createdAt ? new Date(ticket.createdAt) : null;
+	const closedAt = ticket.closedAt ? new Date(ticket.closedAt) : null;
+	const participants = await client.prisma.archivedUser.findMany({
+		where: { ticketId: ticket.id },
+	});
+	const mentionList = participants.map(u => `<@${u.userId}>`).join(', ');
+
+	if (action === 'close') {
+		embed.addFields(
+			{
+				name: '\n',
+				value: '\n',
+            },
+			{
+				inline: true,
+				name: 'Ticket Transcript',
+				value: `\n[Click here](${transcriptUrl})`,
+			},
+			{
+				name: '\n',
+				value: '\n',
+            },
+			{
+				inline: true,
+				name: 'Ticket Participants',
+				value: `\n${mentionList}`,
+			},
+			{
+				name: '\n',
+				value: '\n',
+            },
+			{
+				inline: true,
+				name: 'Opened by/date',
+				value: `${
+					ticket.createdById
+					? `<@${ticket.createdById}>`
+					: 'N/A'
+				} \n${
+					openedAt
+					? `<t:${Math.floor(openedAt.getTime() / 1000)}:f>`
+					: 'N/A'
+				}`,
+			},
+			{
+				inline: true,
+				name: 'Closed by/date',
+				value: `${
+					ticket.closedById
+					? `<@${ticket.closedById}>`
+					: 'N/A'
+				} \n${
+					closedAt
+					? `<t:${Math.floor(closedAt.getTime() / 1000)}:f>`
+					: 'N/A'
+				}`,
+			},
+		);
+	}
+
+	// If there's a reason or diff, add them
+	if (target.reason) {
+		embed.addFields({
+			name: getMessage('log.ticket.reason'),
+			value: target.reason,
+		});
+	}
+
 	if (diff?.original && Object.entries(makeDiff(diff)).length) {
-		embeds.push(
+		embed.push(
 			new EmbedBuilder()
 				.setColor(colour)
 				.setTitle(getMessage('log.admin.changes'))
 				.setFields(makeDiff(diff)),
 		);
 	}
-
+	
+	const embeds = [embed];
 	return await channel.send({
 		components:
-			action === 'close' ? [
-				new ActionRowBuilder()
-					.addComponents(
+			action === 'close' && target.archive
+				? [
+					new ActionRowBuilder().addComponents(
 						new ButtonBuilder()
-							.setCustomId(JSON.stringify({
-								action: 'transcript',
-								ticket: target.id,
-							}))
+							.setCustomId(
+								JSON.stringify({
+									action: 'transcript',
+									ticket: target.id,
+								}),
+							)
 							.setStyle(ButtonStyle.Primary)
 							.setEmoji(getMessage('buttons.transcript.emoji'))
 							.setLabel(getMessage('buttons.transcript.text')),
 					),
-			] : [],
+				]
+				: [],
 		embeds,
 	});
 }

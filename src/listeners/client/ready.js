@@ -1,8 +1,4 @@
 const { Listener } = require('@eartharoid/dbf');
-const {
-	getAvgResolutionTime,
-	getAvgResponseTime,
-} = require('../../lib/stats');
 const ms = require('ms');
 const sync = require('../../lib/sync');
 const checkForUpdates = require('../../lib/updates');
@@ -13,7 +9,10 @@ const {
 	ButtonStyle,
 } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
-const { sendToHouston } = require('../../lib/stats');
+const {
+	getAverageTimes,
+	sendToHouston,
+} = require('../../lib/stats');
 
 module.exports = class extends Listener {
 	constructor(client, options) {
@@ -33,6 +32,8 @@ module.exports = class extends Listener {
 		process.title = 'tickets';
 		client.log.success('Connected to Discord as "%s" over %d shards', client.user.tag, client.ws.shards.size);
 
+		await client.initAfterLogin();
+
 		// fill cache
 		await sync(client);
 
@@ -43,9 +44,10 @@ module.exports = class extends Listener {
 				.catch(client.log.error);
 		}
 
+		await client.application.fetch();
 		if (process.env.PUBLIC_BOT === 'true' && !client.application.botPublic) {
 			client.log.warn('The `PUBLIC_BOT` environment variable is set to `true`, but the bot is not public.');
-		} else if (process.env.PUBLIC_BOT === 'false' && client.application.botPublic) {
+		} else if (process.env.PUBLIC_BOT !== 'true' && client.application.botPublic) {
 			client.log.warn('Your bot is public, but public features are disabled. Set the `PUBLIC_BOT` environment variable to `true`, or make your bot private.');
 		}
 
@@ -66,11 +68,16 @@ module.exports = class extends Listener {
 							firstResponseAt: true,
 						},
 					});
-					const closedTicketsWithResponse = tickets.filter(t => t.firstResponseAt && t.closedAt);
 					const closedTickets = tickets.filter(t => t.closedAt);
+					const closedTicketsWithResponse = closedTickets.filter(t => t.firstResponseAt);
+					const {
+						avgResolutionTime,
+						avgResponseTime,
+					} = await getAverageTimes(closedTicketsWithResponse);
 					cached = {
-						avgResolutionTime: ms(getAvgResolutionTime(closedTicketsWithResponse)),
-						avgResponseTime: ms(getAvgResponseTime(closedTicketsWithResponse)),
+						avgResolutionTime: ms(avgResolutionTime),
+						avgResponseTime: ms(avgResponseTime),
+						guilds: client.guilds.cache.size,
 						openTickets: tickets.length - closedTickets.length,
 						totalTickets: tickets.length,
 					};
@@ -80,6 +87,7 @@ module.exports = class extends Listener {
 				activity.name = activity.name
 					.replace(/{+avgResolutionTime}+/gi, cached.avgResolutionTime)
 					.replace(/{+avgResponseTime}+/gi, cached.avgResponseTime)
+					.replace(/{+guilds}+/gi, cached.guilds)
 					.replace(/{+openTickets}+/gi, cached.openTickets)
 					.replace(/{+totalTickets}+/gi, cached.totalTickets);
 				client.user.setPresence({
@@ -163,7 +171,7 @@ module.exports = class extends Listener {
 						}
 
 						const getMessage = client.i18n.getLocale(guild.locale);
-						const closeComamnd = client.application.commands.cache.find(c => c.name === 'close');
+						const closeCommand = client.application.commands.cache.find(c => c.name === 'close');
 						const sent = await channel.send({
 							components: [
 								new ActionRowBuilder()
@@ -184,7 +192,7 @@ module.exports = class extends Listener {
 									.setColor(guild.primaryColour)
 									.setTitle(getMessage('ticket.inactive.title'))
 									.setDescription(getMessage('ticket.inactive.description', {
-										close: `</${closeComamnd.name}:${closeComamnd.id}>`,
+										close: `</${closeCommand.name}:${closeCommand.id}>`,
 										timestamp: Math.floor(ticket.lastMessageAt.getTime() / 1000),
 									})),
 							],

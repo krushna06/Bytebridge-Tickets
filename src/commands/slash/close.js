@@ -17,30 +17,9 @@ module.exports = class CloseSlashCommand extends SlashCommand {
 					required: false,
 					type: ApplicationCommandOptionType.String,
 				},
-				{
-					name: 'premade_reasons',
-					description: 'Select a predefined reason for closing the ticket',
-					type: ApplicationCommandOptionType.String,
-					required: false,
-					choices: [
-						{
-							name: 'We\'re aware of this issue, it will be fixed soon',
-							value: 'issue_fix_soon',
-						},
-						{
-							name: 'Ticket has been resolved',
-							value: 'ticket_resolved',
-						},
-						{
-							name: 'Your ban request has been denied',
-							value: 'ban_request_denied',
-						},
-					],
-				},
 			].map(option => {
 				option.descriptionLocalizations = client.i18n.getAllMessages(`commands.slash.${name}.options.${option.name}.description`);
-				option.description = option.descriptionLocalizations['en-GB'] || 'No description provided';
-
+				option.description = option.descriptionLocalizations['en-GB'];
 				option.nameLocalizations = client.i18n.getAllMessages(`commands.slash.${name}.options.${option.name}.name`);
 				return option;
 			}),
@@ -53,12 +32,6 @@ module.exports = class CloseSlashCommand extends SlashCommand {
 	async run(interaction) {
 		/** @type {import("client")} */
 		const client = this.client;
-		// const reason = interaction.options.getString('reason');
-		// const premadeReasons = interaction.options.getString('premade_reasons');
-
-		// console.log('Reason:', reason);
-		// console.log('Predefined Reason:', premadeReasons);
-
 		await client.tickets.beforeRequestClose(interaction);
 	}
 };

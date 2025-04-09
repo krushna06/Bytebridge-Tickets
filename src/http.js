@@ -1,14 +1,16 @@
 const fastify = require('fastify')({ trustProxy: process.env.HTTP_TRUST_PROXY === 'true' });
-const oauth = require('@fastify/oauth2');
-const { randomBytes } = require('crypto');
 const { short } = require('leeks.js');
 const { join } = require('path');
 const { files } = require('node-dir');
-const { PermissionsBitField } = require('discord.js');
+const { getPrivilegeLevel } = require('./lib/users');
+const { format } = require('util');
 
 process.env.ORIGIN = process.env.HTTP_INTERNAL || process.env.HTTP_EXTERNAL;
 
 module.exports = async client => {
+	// for file uploads
+	fastify.register(require('@fastify/multipart'), { limits: { fileSize: 2**27 } }); // 128 MiB
+
 	// cookies plugin, must be registered before oauth2 since oauth2@7.2.0
 	fastify.register(require('@fastify/cookie'));
 
@@ -20,35 +22,6 @@ module.exports = async client => {
 		},
 		secret: process.env.ENCRYPTION_KEY,
 	});
-
-	// oauth2 plugin
-	fastify.states = new Map();
-	fastify.register(oauth, {
-		callbackUri: `${process.env.HTTP_EXTERNAL}/auth/callback`,
-		callbackUriParams: { prompt: 'none' },
-		checkStateFunction: async req => {
-			if (req.query.state !== req.cookies['oauth2-redirect-state']) {
-				throw new Error('Invalid state');
-			}
-			return true;
-		},
-		credentials: {
-			auth: oauth.DISCORD_CONFIGURATION,
-			client: {
-				id: client.user.id,
-				secret: process.env.DISCORD_SECRET,
-			},
-		},
-		generateStateFunction: req => {
-			const state = randomBytes(12).toString('hex');
-			fastify.states.set(state, req.query.r);
-			return state;
-		},
-		name: 'discord',
-		scope: ['applications.commands.permissions.update', 'guilds', 'identify'],
-		startRedirectPath: '/auth/login',
-	});
-
 
 	// auth
 	fastify.decorate('authenticate', async (req, res) => {
@@ -65,7 +38,7 @@ module.exports = async client => {
 		}
 	});
 
-	fastify.decorate('isAdmin', async (req, res) => {
+	fastify.decorate('isMember', async (req, res) => {
 		try {
 			const userId = req.user.id;
 			const guildId = req.params.guild;
@@ -79,7 +52,49 @@ module.exports = async client => {
 				});
 			}
 			const guildMember = await guild.members.fetch(userId);
-			const isAdmin = guildMember?.permissions.has(PermissionsBitField.Flags.ManageGuild) || client.supers.includes(userId);
+			if (!guildMember) {
+				return res.code(403).send({
+					error: 'Forbidden',
+					message: 'You are not permitted for this action.',
+					statusCode: 403,
+
+				});
+			}
+		} catch (err) {
+			res.send(err);
+		}
+	});
+
+	fastify.decorate('isAdmin', async (req, res) => {
+		try {
+			const userId = req.user.id;
+			const guildId = req.params.guild;
+			const guild = client.guilds.cache.get(guildId);
+			if (!guild) {
+				return res.code(404).send({
+					error: 'Not Found',
+					message: 'The requested resource could not be found.',
+					statusCode: 404,
+
+				});
+			}
+			if (client.banned_guilds.has(guildId)) {
+				return res.code(451).send({
+					error: 'Unavailable For Legal Reasons',
+					message: 'This guild has been banned for breaking the terms of service.',
+					statusCode: 451,
+				});
+			}
+			if (!req.user.service && !req.user.scopes?.includes('applications.commands.permissions.update')) {
+				return res.code(401).send({
+					elevate: 'admin',
+					error: 'Unauthorised',
+					message: 'Extra scopes required; reauthenticate.',
+					statusCode: 401,
+				});
+			}
+			const guildMember = await guild.members.fetch(userId);
+			const isAdmin = await getPrivilegeLevel(guildMember) >= 2;
 			if (!isAdmin) {
 				return res.code(403).send({
 					error: 'Forbidden',
@@ -125,11 +140,15 @@ module.exports = async client => {
 				: '&a') + responseTime + 'ms';
 		const level = req.routeOptions.url === '/status'
 			? 'debug'
-			:  req.routeOptions.url === '/*'
+			: req.routeOptions.url === '/*'
 				? 'verbose'
 				: 'info';
-		client.log[level].http(short(`${req.id} ${req.ip} ${req.method} ${req.routeOptions.url ?? '*'} &m-+>&r ${status}&b in ${responseTime}`));
-		if (!req.routeOptions.url) client.log.verbose.http(`${req.id} ${req.method} ${req.url}`);
+		client.log[level].http(
+			format(
+				short(`${req.id} ${req.ip} ${req.method} %s &m-+>&r ${status}&b in ${responseTime}`),
+				req.url,
+			),
+		);
 		done();
 	});
 
@@ -158,7 +177,7 @@ module.exports = async client => {
 		})); // register route
 	});
 
-	const { handler } = await import('@bytebridge-limited/settings/build/handler.js');
+	const { handler } = await import('@discord-tickets/settings/build/handler.js');
 
 	// https://stackoverflow.com/questions/72317071/how-to-set-up-fastify-correctly-so-that-sveltekit-works-fine
 	fastify.all('/*', {}, (req, res) => handler(req.raw, res.raw, () => { }));

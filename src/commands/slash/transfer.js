@@ -3,8 +3,9 @@ const {
 	ApplicationCommandOptionType,
 	EmbedBuilder,
 } = require('discord.js');
-const Cryptr = require('cryptr');
-const { decrypt } = new Cryptr(process.env.ENCRYPTION_KEY);
+const ExtendedEmbedBuilder = require('../../lib/embed');
+const { quick } = require('../../lib/threads');
+
 
 module.exports = class TransferSlashCommand extends SlashCommand {
 	constructor(client, options) {
@@ -50,6 +51,22 @@ module.exports = class TransferSlashCommand extends SlashCommand {
 			where: { id: interaction.channel.id },
 		});
 
+		if (!ticket) {
+			const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
+			const getMessage = client.i18n.getLocale(settings.locale);
+			return await interaction.editReply({
+				embeds: [
+					new ExtendedEmbedBuilder({
+						iconURL: interaction.guild.iconURL(),
+						text: settings.footer,
+					})
+						.setColor(settings.errorColour)
+						.setTitle(getMessage('misc.not_ticket.title'))
+						.setDescription(getMessage('misc.not_ticket.description')),
+				],
+			});
+		}
+
 		const from = ticket.createdById;
 
 		const channelName = ticket.category.channelName
@@ -71,7 +88,7 @@ module.exports = class TransferSlashCommand extends SlashCommand {
 			}),
 			interaction.channel.edit({
 				name: channelName,
-				topic: `${member.toString()}${ticket.topic?.length > 0 ? ` | ${decrypt(ticket.topic)}` : ''}`,
+				topic: `${member.toString()}${ticket.topic && ` | ${await quick('crypto', w => w.decrypt(ticket.topic))}`}`,
 			}),
 			interaction.channel.permissionOverwrites.edit(
 				member,

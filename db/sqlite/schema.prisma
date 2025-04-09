@@ -121,7 +121,7 @@ model Guild {
     createdAt     DateTime   @default(now())
     errorColour   String     @default("Red")
     feedback      Feedback[]
-    footer        String?    @default("Bytebridge Limited by n0step")
+    footer        String?    @default("Support Tickets")
     id            String     @id
     locale        String     @default("en-GB")
     logChannel    String?

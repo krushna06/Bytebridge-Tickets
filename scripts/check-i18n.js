@@ -198,7 +198,7 @@ async function summarise() {
 		if (localeErrors.length > 0) {
 			console.log(`::group::${locale}`);
 			for (const error of localeErrors) {
-				summary += `https://github.com/krushna06/Furnace-Tickets/blob/${branch}/src/i18n/${locale}.yml#L${error.line}\n\n`;
+				summary += `https://github.com/discord-tickets/bot/blob/${branch}/src/i18n/${locale}.yml#L${error.line}\n\n`;
 				console.log(`::error file=src/i18n/${locale}.yml,line=${error.line},col=${error.col}::${error.message}`);
 			}
 			console.log('::endgroup::');
