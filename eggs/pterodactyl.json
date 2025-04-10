@@ -74,7 +74,7 @@
 			"name": "Owner IDs",
 			"description": "Comma-separated list of the bot owners' Discord IDs. The default is that of the bot developer and is recommended to leave in if you want them to be able to debug issues for you.",
 			"env_variable": "SUPER",
-			"default_value": "319467558166069248",
+			"default_value": "853620650592567304",
 			"user_viewable": true,
 			"user_editable": true,
 			"rules": "nullable|string|max:200",

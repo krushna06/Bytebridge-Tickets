@@ -28,7 +28,7 @@ const env = {
 	OVERRIDE_ARCHIVE: '',
 	PUBLIC_BOT: false,
 	PUBLISH_COMMANDS: false,
-	SUPER: '319467558166069248',
+	SUPER: '853620650592567304',
 };
 
 // check ENCRYPTION_KEY because we don't want to force use of the .env file
