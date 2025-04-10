@@ -44,6 +44,8 @@ const env = {
 	PUBLIC_BOT: () => true, // optional
 	PUBLISH_COMMANDS: () => true, // optional
 	SUPER: () => true, // optional
+	TRANSCRIPT_OUTPUT_DIR: () => true, // optional
+	TRANSCRIPT_URL: () => true, // optional
 };
 
 const load = options => {
