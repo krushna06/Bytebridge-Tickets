@@ -234,3 +234,16 @@ model User {
 
     @@map("users")
 }
+
+model Panel {
+    channelId String
+    createdAt DateTime @default(now())
+    guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+    guildId   String
+    id        String   @id
+    messageId String
+    updatedAt DateTime @updatedAt
+
+    @@unique([guildId])
+    @@map("panels")
+}
