@@ -24,8 +24,6 @@
 /* eslint-disable no-console */
 
 const pkg = require('../package.json');
-const banner = require('./lib/banner');
-banner(pkg.version); // print big title
 
 const semver = require('semver');
 const { colours } = require('leeks.js');
