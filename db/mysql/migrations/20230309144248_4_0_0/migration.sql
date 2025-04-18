@@ -255,3 +255,8 @@ ALTER TABLE `tickets` ADD CONSTRAINT `tickets_guildId_fkey` FOREIGN KEY (`guildI
 
 -- AddForeignKey
 ALTER TABLE `tickets` ADD CONSTRAINT `tickets_referencesTicketId_fkey` FOREIGN KEY (`referencesTicketId`) REFERENCES `tickets`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Add staff profile fields to User table
+ALTER TABLE users
+ADD COLUMN bio TEXT NULL,
+ADD COLUMN activeHours TEXT NULL DEFAULT '[]';
