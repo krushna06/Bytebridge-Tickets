@@ -3,6 +3,7 @@ const { ApplicationCommandOptionType } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
 const { logTicketEvent } = require('../../lib/logging');
+const ms = require('ms');
 
 module.exports = class StatsSlashCommand extends SlashCommand {
 	constructor(client, options) {
@@ -36,10 +37,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 		/** @type {import("client")} */
 		const client = this.client;
 
-		// Fix: Remove ephemeral option to avoid deprecation warning
 		await interaction.deferReply();
 
-		// Get guild settings
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
 
 		// Check if user is staff
@@ -57,7 +56,62 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 			});
 		}
 
-		// Get time range
+		const existingStats = await client.prisma.statsMessage.findFirst({
+			where: { guildId: interaction.guild.id }
+		});
+
+		const statsEmbed = await this.generateStatsEmbed(interaction, settings);
+
+		let message;
+		if (existingStats) {
+			try {
+				const channel = await interaction.guild.channels.fetch(existingStats.channelId);
+				message = await channel.messages.fetch(existingStats.messageId);
+				await message.edit({ embeds: [statsEmbed] });
+				await interaction.editReply({
+					content: 'Statistics are being displayed and updated in the original message.',
+					ephemeral: true
+				});
+			} catch (error) {
+				message = await interaction.editReply({ embeds: [statsEmbed] });
+			}
+		} else {
+			message = await interaction.editReply({ embeds: [statsEmbed] });
+		}
+
+		await client.prisma.statsMessage.upsert({
+			where: { guildId: interaction.guild.id },
+			create: {
+				guildId: interaction.guild.id,
+				channelId: message.channel.id,
+				messageId: message.id
+			},
+			update: {
+				channelId: message.channel.id,
+				messageId: message.id
+			}
+		});
+
+		if (!client.statsUpdateIntervals?.has(interaction.guild.id)) {
+			const interval = setInterval(async () => {
+				try {
+					const updatedEmbed = await this.generateStatsEmbed(interaction, settings);
+					await message.edit({ embeds: [updatedEmbed] });
+				} catch (error) {
+					clearInterval(interval);
+					client.statsUpdateIntervals.delete(interaction.guild.id);
+				}
+			}, 10000);
+
+			if (!client.statsUpdateIntervals) client.statsUpdateIntervals = new Map();
+			client.statsUpdateIntervals.set(interaction.guild.id, interval);
+		}
+	}
+
+	async generateStatsEmbed(interaction, settings) {
+		/** @type {import("client")} */
+		const client = this.client;
+
 		const timeRange = interaction.options.getString('timerange') || '7d';
 		let startDate;
 		const endDate = new Date();
@@ -105,18 +159,15 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				},
 			});
 
+			// Handle case when no tickets are found
 			if (tickets.length === 0) {
-				return await interaction.editReply({
-					embeds: [
-						new ExtendedEmbedBuilder({
-							iconURL: interaction.guild.iconURL(),
-							text: settings.footer,
-						})
-							.setColor(settings.primaryColour)
-							.setTitle('ℹ️ No Data')
-							.setDescription('No tickets found in the selected time period.'),
-					],
-				});
+			return new ExtendedEmbedBuilder({  // Return the embed instead of sending it
+					iconURL: interaction.guild.iconURL(),
+					text: settings.footer,
+				})
+					.setColor(settings.primaryColour)
+					.setTitle('ℹ️ No Data')
+					.setDescription('No tickets found in the selected time period.');
 			}
 
 			// 1. Calculate Most Popular Category
@@ -300,27 +351,18 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				statsEmbed.addFields(staffField);
 			}
 			
-			await interaction.editReply({ embeds: [statsEmbed] });
-			
-			// Fix: Skip logging to avoid the Prisma error 
-			// The logTicketEvent function seems to be looking for a ticket ID when action is 'stats'
-			// Instead of logging with ticket actions, we'll just log to console
-			console.log(`Stats command used by ${interaction.user.tag} (${interaction.user.id}) with timerange: ${timeRange}`);
-			
+			// Return the embed instead of sending it
+			return statsEmbed;
 		} catch (error) {
 			console.error('Error in stats command:', error);
 			
-			return await interaction.editReply({
-				embeds: [
-					new ExtendedEmbedBuilder({
-						iconURL: interaction.guild.iconURL(),
-						text: settings.footer,
-					})
-						.setColor(settings.errorColour)
-						.setTitle('❌ Error')
-						.setDescription('There was an error generating ticket statistics.'),
-				],
-			});
+			return new ExtendedEmbedBuilder({  // Return the embed instead of sending it
+				iconURL: interaction.guild.iconURL(),
+				text: settings.footer,
+			})
+				.setColor(settings.errorColour)
+				.setTitle('❌ Error')
+				.setDescription('There was an error generating ticket statistics.');
 		}
 	}
 };

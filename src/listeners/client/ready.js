@@ -210,5 +210,45 @@ module.exports = class extends Listener {
 				}
 			}
 		}, staleInterval);
+
+		try {
+		const statsMessages = await client.prisma.statsMessage.findMany();
+		for (const stats of statsMessages) {
+		try {
+		const guild = client.guilds.cache.get(stats.guildId);
+		if (!guild) continue;
+	
+		const channel = await guild.channels.fetch(stats.channelId);
+		const message = await channel.messages.fetch(stats.messageId);
+		const settings = await client.prisma.guild.findUnique({ 
+		where: { id: stats.guildId } 
+		});
+	
+		if (!client.statsUpdateIntervals) client.statsUpdateIntervals = new Map();
+	
+		const interval = setInterval(async () => {
+		try {
+		const statsCommand = client.commands.commands.slash.get('stats');
+		const updatedEmbed = await statsCommand.generateStatsEmbed({ guild, options: { getString: () => '7d' } }, settings);
+		await message.edit({ embeds: [updatedEmbed] });
+		} catch (error) {
+		console.error('Error updating stats message:', error);
+		clearInterval(interval);
+		client.statsUpdateIntervals.delete(stats.guildId);
+		}
+		}, 10000); // 10 seconds
+	
+		client.statsUpdateIntervals.set(stats.guildId, interval);
+		client.log.success(`Restored stats update for guild ${stats.guildId}`);
+		} catch (error) {
+		await client.prisma.statsMessage.delete({ 
+		where: { guildId: stats.guildId } 
+		});
+		client.log.warn(`Removed invalid stats message for guild ${stats.guildId}`);
+		}
+		}
+		} catch (error) {
+		client.log.error('Error restoring stats updates:', error);
+		}
 	}
 };

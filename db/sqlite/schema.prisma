@@ -236,3 +236,9 @@ model User {
 
     @@map("users")
 }
+
+model StatsMessage {
+    guildId   String @id
+    channelId String
+    messageId String
+}

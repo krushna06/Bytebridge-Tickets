@@ -209,3 +209,12 @@ CREATE UNIQUE INDEX "tickets_guildId_number_key" ON "tickets"("guildId", "number
 -- Add staff profile fields to User table
 ALTER TABLE users ADD COLUMN bio TEXT;
 ALTER TABLE users ADD COLUMN activeHours TEXT DEFAULT '[]';
+
+-- CreateTable
+CREATE TABLE "StatsMessage" (
+    "guildId" TEXT NOT NULL,
+    "channelId" TEXT NOT NULL,
+    "messageId" TEXT NOT NULL,
+
+    CONSTRAINT "StatsMessage_pkey" PRIMARY KEY ("guildId")
+);
