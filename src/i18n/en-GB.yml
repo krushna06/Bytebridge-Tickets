@@ -290,6 +290,7 @@ commands:
 dm:
   closed:
     fields:
+      transcript: Transcript
       closed:
         name: Closed at
         value: |-

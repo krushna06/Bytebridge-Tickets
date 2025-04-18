@@ -1287,7 +1287,7 @@ module.exports = class TicketManager {
 		const transcriptUrlBase = process.env.TRANSCRIPT_URL;
 
 		await fs.writeFile(outputPath, html);
-		transcriptUrl = `${transcriptUrlBase}${ticketId}.html`;
+		transcriptUrl = `${transcriptUrlBase}${ticketId}`;
 		} catch (err) {
 		this.client.log.error('Transcript creation failed', err);
 		}
@@ -1386,6 +1386,14 @@ module.exports = class TicketManager {
 						inline: true,
 						name: getMessage('dm.closed.fields.reason'),
 						value: reason,
+					});
+				}
+
+				if (transcriptUrl) {
+					embed.addFields({
+						inline: true,
+						name: getMessage('dm.closed.fields.transcript'),
+						value: `[Click here](${transcriptUrl})`,
 					});
 				}
 
