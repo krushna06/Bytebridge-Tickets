@@ -231,6 +231,8 @@ model User {
     ticketsClosed   Ticket[]         @relation("TicketsClosedByUser")
     ticketsClaimed  Ticket[]         @relation("TicketsClaimedByUser")
     questionAnswers QuestionAnswer[]
+    bio            String?
+    activeHours    String?          @default("[]")
 
     @@map("users")
 }

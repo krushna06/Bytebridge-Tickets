@@ -205,3 +205,7 @@ CREATE UNIQUE INDEX "tags_guildId_name_key" ON "tags"("guildId", "name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tickets_guildId_number_key" ON "tickets"("guildId", "number");
+
+-- Add staff profile fields to User table
+ALTER TABLE users ADD COLUMN bio TEXT;
+ALTER TABLE users ADD COLUMN activeHours TEXT DEFAULT '[]';
