@@ -101,7 +101,7 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					clearInterval(interval);
 					client.statsUpdateIntervals.delete(interaction.guild.id);
 				}
-			}, 10000);
+			}, 120000);
 
 			if (!client.statsUpdateIntervals) client.statsUpdateIntervals = new Map();
 			client.statsUpdateIntervals.set(interaction.guild.id, interval);

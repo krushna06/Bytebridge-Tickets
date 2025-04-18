@@ -236,7 +236,7 @@ module.exports = class extends Listener {
 		clearInterval(interval);
 		client.statsUpdateIntervals.delete(stats.guildId);
 		}
-		}, 10000); // 10 seconds
+		}, 120000); // 10 seconds
 	
 		client.statsUpdateIntervals.set(stats.guildId, interval);
 		client.log.success(`Restored stats update for guild ${stats.guildId}`);
