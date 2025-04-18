@@ -100,7 +100,7 @@ CREATE TABLE `guilds` (
     `closeButton` BOOLEAN NOT NULL DEFAULT false,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `errorColour` VARCHAR(191) NOT NULL DEFAULT 'Red',
-    `footer` VARCHAR(191) NULL DEFAULT 'Support Tickets',
+    `footer` VARCHAR(191) NULL DEFAULT 'Discord Tickets',
     `id` VARCHAR(19) NOT NULL,
     `locale` VARCHAR(191) NOT NULL DEFAULT 'en-GB',
     `logChannel` VARCHAR(19) NULL,

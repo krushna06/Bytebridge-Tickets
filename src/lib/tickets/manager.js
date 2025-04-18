@@ -184,7 +184,7 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('misc.unknown_category.title'))
 						.setDescription(getMessage('misc.unknown_category.description')),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		}
 
@@ -206,7 +206,7 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('misc.ratelimited.title'))
 						.setDescription(getMessage('misc.ratelimited.description')),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		} else {
 			this.client.keyv.set(rlKey, true, ms('5s'));
@@ -222,7 +222,7 @@ module.exports = class TicketManager {
 					.setTitle(getMessage(`misc.${name}.title`))
 					.setDescription(getMessage(`misc.${name}.description`)),
 			],
-			flags: [1 << 6],
+			ephemeral: true,
 		});
 
 		if (category.guild.blocklist.length !== 0) {
@@ -253,7 +253,7 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('misc.member_limit.title', memberCount, memberCount))
 						.setDescription(getMessage('misc.member_limit.description', memberCount)),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		}
 
@@ -269,7 +269,7 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('misc.cooldown.title'))
 						.setDescription(getMessage('misc.cooldown.description', { time: ms(cooldown - Date.now()) })),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		}
 
@@ -368,7 +368,7 @@ module.exports = class TicketManager {
 		action, categoryId, interaction, topic, referencesMessageId, referencesTicketId,
 	}) {
 		const [, category] = await Promise.all([
-			interaction.deferReply({ flags: [1 << 6] }),
+			interaction.deferReply({ ephemeral: true }),
 			this.getCategory(categoryId),
 		]);
 
@@ -834,11 +834,11 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('commands.slash.claim.not_staff.title'))
 						.setDescription(getMessage('commands.slash.claim.not_staff.description')),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		}
 
-		await interaction.deferReply({ flags: [] });
+		await interaction.deferReply({ ephemeral: false });
 
 		await Promise.all([
 			interaction.channel.permissionOverwrites.edit(interaction.user, { 'ViewChannel': true }, `Ticket claimed by ${interaction.user.tag}`),
@@ -937,11 +937,11 @@ module.exports = class TicketManager {
 						.setTitle(getMessage('commands.slash.claim.not_staff.title'))
 						.setDescription(getMessage('commands.slash.claim.not_staff.description')),
 				],
-				flags: [1 << 6],
+				ephemeral: true,
 			});
 		}
 
-		await interaction.deferReply({ flags: [] });
+		await interaction.deferReply({ ephemeral: false });
 
 		await Promise.all([
 			interaction.channel.permissionOverwrites.delete(interaction.user, `Ticket released by ${interaction.user.tag}`),
@@ -1049,7 +1049,7 @@ module.exports = class TicketManager {
 	async beforeRequestClose(interaction) {
 		const ticket = await this.getTicket(interaction.channel.id);
 		if (!ticket) {
-			await interaction.deferReply({ flags: [1 << 6] });
+			await interaction.deferReply({ ephemeral: true });
 			const {
 				errorColour,
 				footer,
@@ -1279,7 +1279,7 @@ module.exports = class TicketManager {
 		const transcriptUrlBase = process.env.TRANSCRIPT_URL;
 
 		await fs.writeFile(outputPath, html);
-		transcriptUrl = `${transcriptUrlBase}${ticketId}`;
+		transcriptUrl = `${transcriptUrlBase}${ticketId}.html`;
 		} catch (err) {
 		this.client.log.error('Transcript creation failed', err);
 		}
@@ -1372,19 +1372,12 @@ module.exports = class TicketManager {
 					});
 				}
 
+
 				if (reason) {
 					embed.addFields({
 						inline: true,
 						name: getMessage('dm.closed.fields.reason'),
 						value: reason,
-					});
-				}
-
-				if (transcriptUrl) {
-					embed.addFields({
-						inline: true,
-						name: getMessage('dm.closed.fields.transcript'),
-						value: `[Click here](${transcriptUrl})`,
 					});
 				}
 
@@ -1417,34 +1410,15 @@ module.exports = class TicketManager {
 		}
 
 		const fieldsArray = [];
-		if (ticket.topic) fieldsArray.push({
-			inline: true,
-			name: getMessage('ticket.opening_message.fields.topic'),
-			value: await quick('crypto', worker => worker.decrypt(ticket.topic)),
-		});
-		fieldsArray.push({
-			inline: true,
-			name: getMessage('dm.closed.fields.created'),
-			value: `<t:${Math.floor(ticket.createdAt / 1000)}:f>`,
-		}, {
-			inline: true,
-			name: getMessage('dm.closed.fields.closed.name'),
-			value: getMessage('dm.closed.fields.closed.value', {
-				duration: ms(ticket.closedAt - ticket.createdAt, { long: true }),
-				timestamp: `<t:${Math.floor(ticket.closedAt / 1000)}:f>`,
-			}),
-		});
-		if (ticket.firstResponseAt) fieldsArray.push({
-			inline: true,
-			name: getMessage('dm.closed.fields.response'),
-			value: ms(ticket.firstResponseAt - ticket.createdAt, { long: true }),
-		});
-		if (ticket.feedback) {
+		if (ticket.topic) fieldsArray.push(fields.topic);
+		fieldsArray.push(fields.created, fields.closed);
+		if (ticket.firstResponseAt) fieldsArray.push(fields.firstResponseAt);
+		if (fields.feedback) {
 			fieldsArray.push(
 				{
+					...fields.feedback,
 					inline: true,
 					name: getMessage('modals.feedback.rating.label'),
-					value: Array(ticket.feedback.rating).fill('⭐').join(' ') + ` (${ticket.feedback.rating}/5)`,
 				},
 				{
 					inline: true,
@@ -1452,16 +1426,12 @@ module.exports = class TicketManager {
 					value: (ticket.feedback.comment && await quick('crypto', worker => worker.decrypt(ticket.feedback.comment))) || getMessage('ticket.answers.no_value'),
 				});
 		}
-		if (reason) fieldsArray.push({
-			inline: true,
-			name: getMessage('dm.closed.fields.reason'),
-			value: reason,
-		});
+		if (reason) fieldsArray.push(fields.reason);
 
 		logTicketEvent(this.client, {
 			action: 'close',
 			payload: {
-				components: [],
+				components,
 				fields: fieldsArray,
 			},
 			target: {

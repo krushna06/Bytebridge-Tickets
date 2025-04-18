@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-    provider =  ["sqlite", "postgresql", "mysql"]
+    provider = "sqlite"
     url      = env("DB_CONNECTION_URL")
 }
 
@@ -121,7 +121,7 @@ model Guild {
     createdAt     DateTime   @default(now())
     errorColour   String     @default("Red")
     feedback      Feedback[]
-    footer        String?    @default("Support Tickets")
+    footer        String?    @default("Discord Tickets")
     id            String     @id
     locale        String     @default("en-GB")
     logChannel    String?
@@ -233,17 +233,4 @@ model User {
     questionAnswers QuestionAnswer[]
 
     @@map("users")
-}
-
-model Panel {
-    channelId String
-    createdAt DateTime @default(now())
-    guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-    guildId   String
-    id        String   @id
-    messageId String
-    updatedAt DateTime @updatedAt
-
-    @@unique([guildId])
-    @@map("panels")
 }

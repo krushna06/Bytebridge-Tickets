@@ -13,4 +13,6 @@ module.exports = version => {
 		.textSync('Tickets', { font: 'Banner3' })
 		.split('\n')
 		.forEach(line => console.log(colours.cyan(line)));
+	console.log('');
+	console.log(colours.cyanBright(`${link('Discord Tickets', 'https://discordtickets.app')} bot v${version}`));	console.log('\n');
 };

@@ -23,14 +23,12 @@ const env = {
 	HTTP_INTERNAL: '',
 	HTTP_PORT: 8169,
 	HTTP_TRUST_PROXY: false,
-	TRANSCRIPT_OUTPUT_DIR: '',
-	TRANSCRIPT_URL: '',
 	INVALIDATE_TOKENS: '',
 	NODE_ENV: 'production', // not bot-specific
 	OVERRIDE_ARCHIVE: '',
 	PUBLIC_BOT: false,
 	PUBLISH_COMMANDS: false,
-	SUPER: '853620650592567304',
+	SUPER: '319467558166069248',
 };
 
 // check ENCRYPTION_KEY because we don't want to force use of the .env file

@@ -44,7 +44,7 @@ module.exports = config => {
 				directory: config.logs.files.directory,
 				format: '[{timestamp}] [{LEVEL}] ({NAMESPACE}) @{file}:{line}:{column} {content}',
 				level: config.logs.level,
-				name: 'Support Tickets',
+				name: 'Discord Tickets',
 				timestamp: 'YYYY-MM-DD HH:mm:ss',
 			}),
 		);
