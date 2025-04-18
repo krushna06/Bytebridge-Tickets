@@ -866,8 +866,8 @@ module.exports = class TicketManager {
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'edit' }))
 						.setStyle(ButtonStyle.Secondary)
-						.setEmoji(getMessage('buttons.edit.emoji'))
-						.setLabel(getMessage('buttons.edit.text')),
+						.setEmoji('✏️')
+						.setLabel('Edit'),
 				);
 			}
 
@@ -876,18 +876,26 @@ module.exports = class TicketManager {
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'unclaim' }))
 						.setStyle(ButtonStyle.Secondary)
-						.setEmoji(getMessage('buttons.unclaim.emoji'))
-						.setLabel(getMessage('buttons.unclaim.text')),
+						.setEmoji('🔓')
+						.setLabel('Unclaim'),
 				);
 			}
+
+			components.addComponents(
+				new ButtonBuilder()
+					.setCustomId(JSON.stringify({ action: 'transfer' }))
+					.setStyle(ButtonStyle.Secondary)
+					.setEmoji('🔄')
+					.setLabel('Transfer'),
+			);
 
 			if (ticket.guild.closeButton) {
 				components.addComponents(
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'close' }))
 						.setStyle(ButtonStyle.Danger)
-						.setEmoji(getMessage('buttons.close.emoji'))
-						.setLabel(getMessage('buttons.close.text')),
+						.setEmoji('🔒')
+						.setLabel('Close'),
 				);
 			}
 
@@ -962,8 +970,8 @@ module.exports = class TicketManager {
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'edit' }))
 						.setStyle(ButtonStyle.Secondary)
-						.setEmoji(getMessage('buttons.edit.emoji'))
-						.setLabel(getMessage('buttons.edit.text')),
+						.setEmoji('✏️') // You can replace with your emoji of choice
+						.setLabel('Edit'),
 				);
 			}
 
@@ -972,8 +980,8 @@ module.exports = class TicketManager {
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'claim' }))
 						.setStyle(ButtonStyle.Secondary)
-						.setEmoji(getMessage('buttons.claim.emoji'))
-						.setLabel(getMessage('buttons.claim.text')),
+						.setEmoji('🔓') // You can replace with your emoji of choice
+						.setLabel('Claim'),
 				);
 			}
 
@@ -982,8 +990,8 @@ module.exports = class TicketManager {
 					new ButtonBuilder()
 						.setCustomId(JSON.stringify({ action: 'close' }))
 						.setStyle(ButtonStyle.Danger)
-						.setEmoji(getMessage('buttons.close.emoji'))
-						.setLabel(getMessage('buttons.close.text')),
+						.setEmoji('🔒') // You can replace with your emoji of choice
+						.setLabel('Close'),
 				);
 			}
 

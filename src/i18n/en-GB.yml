@@ -29,6 +29,9 @@ buttons:
   unclaim:
     emoji: ♻️
     text: Release
+  transfer:
+    emoji: 🔄
+    text: Transfer
 commands:
   message:
     create:
