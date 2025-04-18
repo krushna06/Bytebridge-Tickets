@@ -103,62 +103,6 @@
 								Back to the portal
 							</a>
 						</div>
-						{#if $page.route.id !== '/settings'}
-							<div class="my-4 flex justify-center gap-3">
-								{#each links as link}
-									<a
-										href={link.url}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="link rounded-3xl bg-gray-50/75 p-0.5 px-2 font-medium text-gray-500 shadow-sm dark:bg-slate-800/75 dark:text-slate-400"
-									>
-										<i class={link.icon}></i>
-										{link.name}
-									</a>
-								{/each}
-							</div>
-						{/if}
-						<p>
-							<a
-								href="https://discordtickets.app"
-								target="_blank"
-								rel="noopener noreferrer"
-								class="cursor-pointer transition duration-300 hover:text-blurple dark:hover:text-blurple"
-								>Discord Tickets</a
-							>
-							by
-							<a
-								href="https://eartharoid.me"
-								target="_blank"
-								rel="noopener noreferrer"
-								class="cursor-pointer transition duration-300 hover:text-blurple dark:hover:text-blurple"
-								>eartharoid&trade;</a
-							>
-						</p>
-						<p>
-							&copy;
-							2025
-							<a
-								href="https://eartharoid.me"
-								target="_blank"
-								class="cursor-pointer transition duration-300 hover:text-blurple dark:hover:text-blurple"
-								>Isaac Saunders</a
-							>
-						</p>
-						<!-- <p class="my-4">
-								<a
-									href="https://lnk.earth/discord"
-									target="_blank"
-									class="hover:text-blurple text-lg transition duration-300"
-								>
-									<i class="fab fa-discord" />
-								</a>
-							</p> -->
-						<p class="my-4 text-xs">
-							Discord Tickets is not an official Discord product.
-							<br />
-							It is not affiliated with nor endorsed by Discord Inc.
-						</p>
 					</footer>
 				</div>
 			</div>

@@ -34,7 +34,7 @@ async function sendToHouston(client) {
 		_count: true,
 		_sum: { messageCount: true },
 	});
-	const messages = users._sum.messageCount;
+	const messages = users._sum.messageCount || 0;
 	const stats = {
 		activated_users: users._count,
 		arch: process.arch,
@@ -44,7 +44,7 @@ async function sendToHouston(client) {
 				.filter(guild => client.guilds.cache.has(guild.id))
 				.map(guild => {
 					guild.members = client.guilds.cache.get(guild.id).memberCount;
-					return pool.queue(w => w.aggregateGuildForHouston(guild, messages));
+					return pool.queue(w => w.aggregateGuildForHouston(guild, messages || 0));
 				}),
 		)),
 		id: md5(client.user.id),
