@@ -69,27 +69,27 @@ module.exports = class ViewProfileSlashCommand extends SlashCommand {
             });
         }
 
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
         const [ticketsClaimed, ticketsClosed, averageRating, averageResponse] = await Promise.all([
             this.client.prisma.ticket.count({
                 where: {
                     claimedById: targetMember.id,
-                    createdAt: { gte: thirtyDaysAgo }
+                    createdAt: { gte: sevenDaysAgo }
                 }
             }),
             this.client.prisma.ticket.count({
                 where: {
                     closedById: targetMember.id,
-                    closedAt: { gte: thirtyDaysAgo }
+                    closedAt: { gte: sevenDaysAgo }
                 }
             }),
             this.client.prisma.ticket.findMany({
                 where: {
                     closedById: targetMember.id,
                     feedback: { isNot: null },
-                    closedAt: { gte: thirtyDaysAgo }
+                    closedAt: { gte: sevenDaysAgo }
                 },
                 include: { feedback: true }
             }).then(tickets => {
@@ -99,27 +99,33 @@ module.exports = class ViewProfileSlashCommand extends SlashCommand {
             }),
             this.client.prisma.ticket.findMany({
                 where: {
-                    claimedById: targetMember.id,
-                    firstResponseAt: { not: null },
-                    createdAt: { gte: thirtyDaysAgo }
+                    closedById: targetMember.id,
+                    closedAt: { gte: sevenDaysAgo }
                 },
                 select: {
                     createdAt: true,
                     firstResponseAt: true
                 }
             }).then(tickets => {
-                if (tickets.length === 0) return null;
-                const total = tickets.reduce((sum, ticket) => 
-                    sum + (new Date(ticket.firstResponseAt) - new Date(ticket.createdAt)), 0);
-                return Math.round(total / tickets.length / 1000 / 60); // Convert to minutes
+                let totalResponseTime = 0;
+                let ticketsWithResponse = 0;
+                tickets.forEach(ticket => {
+                    if (ticket.firstResponseAt && ticket.createdAt) {
+                        const responseTime = new Date(ticket.firstResponseAt).getTime() - new Date(ticket.createdAt).getTime();
+                        totalResponseTime += responseTime;
+                        ticketsWithResponse++;
+                    }
+                });
+                if (ticketsWithResponse === 0) return null;
+                return ((totalResponseTime / ticketsWithResponse) / (1000 * 60)).toFixed(2); // minutes, 2 decimals
             })
         ]);
 
         embed.addFields(
-            { name: 'Tickets Claimed (30d)', value: ticketsClaimed.toString(), inline: true },
-            { name: 'Tickets Closed (30d)', value: ticketsClosed.toString(), inline: true },
-            { name: 'Average Rating (30d)', value: averageRating ? `${averageRating} ⭐` : 'No ratings', inline: true },
-            { name: 'Avg Response Time (30d)', value: averageResponse ? `${averageResponse} min` : 'No data', inline: true }
+            { name: 'Tickets Claimed (7d)', value: ticketsClaimed.toString(), inline: true },
+            { name: 'Tickets Closed (7d)', value: ticketsClosed.toString(), inline: true },
+            { name: 'Average Rating (7d)', value: averageRating ? `${averageRating} ⭐` : 'No ratings', inline: true },
+            { name: 'Avg Response Time (7d)', value: averageResponse ? `${averageResponse} min` : 'No data', inline: true }
         );
 
         await interaction.editReply({ embeds: [embed] });
