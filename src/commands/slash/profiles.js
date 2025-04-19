@@ -41,8 +41,9 @@ module.exports = class ProfilesSlashCommand extends SlashCommand {
 			const bio = member.bio || 'No bio available';
 			const activeHours = member.activeHours ? this.formatActiveHours(member.activeHours) : 'Not set';
 			const averageRating = await this.getAverageRating(member.id);
+			const responseTime = await this.getAverageResponseTime(member.id);
 
-			fieldValue += `**${user.displayName}**\nBio: ${bio}\nActive Hours: ${activeHours}\nRating: ${averageRating ? `${averageRating} ⭐` : 'No ratings'}`;
+			fieldValue += `**${user.displayName}**\nBio: ${bio}\nActive Hours: ${activeHours}\nRating: ${averageRating ? `${averageRating} ⭐` : 'No ratings'}\nResponse Time: ${responseTime || 'No data'}`;
 
 			count++;
 
@@ -55,6 +56,28 @@ module.exports = class ProfilesSlashCommand extends SlashCommand {
 		}
 
 		await interaction.editReply({ embeds: [embed] });
+	}
+
+	async getAverageResponseTime(userId) {
+		const tickets = await this.client.prisma.ticket.findMany({
+			where: {
+				closedById: userId,
+				firstResponseAt: { not: null },
+			},
+			select: {
+				createdAt: true,
+				firstResponseAt: true,
+			},
+		});
+
+		if (tickets.length === 0) return null;
+
+		const totalResponseTime = tickets.reduce((sum, ticket) => {
+			return sum + (ticket.firstResponseAt.getTime() - ticket.createdAt.getTime());
+		}, 0);
+
+		const averageResponseTime = totalResponseTime / tickets.length;
+		return `${Math.round(averageResponseTime / 1000 / 60)} minutes`; 
 	}
 
 	formatActiveHours(activeHours) {
