@@ -188,7 +188,10 @@ CREATE TABLE "tickets" (
 CREATE TABLE "users" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "id" TEXT NOT NULL PRIMARY KEY,
-    "messageCount" INTEGER NOT NULL DEFAULT 0
+    "messageCount" INTEGER NOT NULL DEFAULT 0,
+    "bio" TEXT,
+    "activeHours" TEXT DEFAULT '[]',
+    "hasProfile" BOOLEAN NOT NULL DEFAULT false
 );
 
 -- CreateIndex
@@ -205,10 +208,6 @@ CREATE UNIQUE INDEX "tags_guildId_name_key" ON "tags"("guildId", "name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tickets_guildId_number_key" ON "tickets"("guildId", "number");
-
--- Add staff profile fields to User table
-ALTER TABLE users ADD COLUMN bio TEXT;
-ALTER TABLE users ADD COLUMN activeHours TEXT DEFAULT '[]';
 
 -- CreateTable
 CREATE TABLE "StatsMessage" (

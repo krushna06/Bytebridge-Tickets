@@ -189,6 +189,9 @@ CREATE TABLE `users` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `id` VARCHAR(19) NOT NULL,
     `messageCount` INTEGER NOT NULL DEFAULT 0,
+    `bio` TEXT NULL,
+    `activeHours` TEXT NULL DEFAULT '[]',
+    `hasProfile` BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -302,3 +305,5 @@ CREATE TABLE IF NOT EXISTS notes (
     createdAt DATETIME NOT NULL,
     updatedAt DATETIME NOT NULL
 );
+
+ALTER TABLE users ADD COLUMN hasProfile BOOLEAN NOT NULL DEFAULT false;

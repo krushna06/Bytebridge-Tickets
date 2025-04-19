@@ -76,15 +76,16 @@ module.exports = class SetProfileSlashCommand extends SlashCommand {
 				activeHours: activeHours ? JSON.stringify([activeHours]) : '[]',
 				bio: bio || null,
 				id: interaction.user.id,
+				hasProfile: true,
 			},
 			update: {
 				...(bio && { bio }),
 				...(activeHours && { activeHours: JSON.stringify([activeHours]) }),
+				hasProfile: true,
 			},
 			where: { id: interaction.user.id },
 		});
 
-		// Prepare response message
 		const updatedFields = [];
 		if (bio) updatedFields.push('Biography');
 		if (activeHours) updatedFields.push('Active Hours');

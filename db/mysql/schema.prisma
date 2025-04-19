@@ -256,6 +256,7 @@ model User {
     questionAnswers QuestionAnswer[]
     bio            String?          @db.Text
     activeHours    String?          @default("[]") @db.Text
+    hasProfile     Boolean  @default(false)
 
     @@map("users")
 }
