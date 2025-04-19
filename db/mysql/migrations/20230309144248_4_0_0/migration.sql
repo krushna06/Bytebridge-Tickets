@@ -284,3 +284,25 @@ CREATE TABLE `notes` (
     INDEX `notes_guildId_idx`(`guildId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Table: StatsMessage
+CREATE TABLE IF NOT EXISTS StatsMessage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId VARCHAR(255) NOT NULL,
+    wordCount INT NOT NULL,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL
+);
+
+-- Table: notes
+CREATE TABLE IF NOT EXISTS notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    createdAt DATETIME NOT NULL,
+    updatedAt DATETIME NOT NULL
+);
+
+ALTER TABLE users
+    ADD COLUMN bio TEXT,
+    ADD COLUMN activeHours TEXT;
