@@ -25,7 +25,6 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 		const commands = interaction.client.application.commands.cache
 			.sort((a, b) => a.name.localeCompare(b.name));
 
-		// Split commands into categories
 		const commandCategories = {
 			general: ['help', 'new', 'tickets', 'tag'],
 			members: ['add', 'remove', 'transfer'],
@@ -40,7 +39,6 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 			.setTitle(getMessage('commands.slash.help.response.commands'))
 			.setDescription(getMessage('commands.slash.help.response.description', { command: '</new:' + commands.find(cmd => cmd.name === 'new')?.id + '>' }));
 
-		// Create fields for each category
 		for (const [category, commandList] of Object.entries(commandCategories)) {
 			const categoryCommands = commands
 				.filter(cmd => commandList.includes(cmd.name))
@@ -54,16 +52,6 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 				});
 			}
 		}
-
-		embed.addFields({
-			name: getMessage('commands.slash.help.response.links.links'),
-			value: [
-				`[${getMessage('commands.slash.help.response.links.docs')}](https://discordtickets.app/docs)`,
-				`[${getMessage('commands.slash.help.response.links.commands')}](https://discordtickets.app/commands)`,
-				`[${getMessage('commands.slash.help.response.links.support')}](https://discord.gg/discord-tickets)`,
-				`[${getMessage('commands.slash.help.response.links.feedback')}](https://discord.gg/discord-tickets/feedback)`,
-			].join('\n'),
-		});
 
 		return interaction.reply({ embeds: [embed] });
 	}
