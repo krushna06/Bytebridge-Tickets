@@ -54,57 +54,80 @@ module.exports = class TicketArchiver {
 
 			for (const role of roles) {
 				if (!role.id || !ticketId) continue;
-				const data = {
-					colour: role.hexColor.slice(1),
-					name: role.name,
-				};
-				roleQueries.push(
-					this.client.prisma.archivedRole.upsert({
-						create: {
-							...data,
+
+				const existingRole = await this.client.prisma.archivedRole.findUnique({
+					where: {
+						ticketId_roleId: {
 							roleId: role.id,
 							ticketId,
 						},
-						select: { ticketId: true },
-						update: data,
-						where: {
-							ticketId_roleId: {
+					},
+				});
+
+				if (!existingRole) {
+					const data = {
+						colour: role.hexColor.slice(1),
+						name: role.name,
+					};
+					roleQueries.push(
+						this.client.prisma.archivedRole.upsert({
+							create: {
+								...data,
 								roleId: role.id,
 								ticketId,
 							},
-						},
-					}),
-				);
-				await delay(100);
+							select: { ticketId: true },
+							update: data,
+							where: {
+								ticketId_roleId: {
+									roleId: role.id,
+									ticketId,
+								},
+							},
+						}),
+					);
+					await delay(100);
+				}
 			}
 
 			for (const member of members) {
-				const data = {
-					avatar: member.avatar || member.user.avatar,
-					bot: member.user.bot,
-					discriminator: member.user.discriminator,
-					displayName: member.displayName ? await worker.encrypt(member.displayName) : null,
-					roleId: !!member && hoistedRole(member).id,
-					username: await worker.encrypt(member.user.username),
-				};
-				userQueries.push(
-					this.client.prisma.archivedUser.upsert({
-						create: {
-							...data,
+				const existingUser = await this.client.prisma.archivedUser.findUnique({
+					where: {
+						ticketId_userId: {
 							ticketId,
 							userId: member.user.id,
 						},
-						select: { ticketId: true },
-						update: data,
-						where: {
-							ticketId_userId: {
+					},
+				});
+
+				if (!existingUser) {
+					const data = {
+						avatar: member.avatar || member.user.avatar,
+						bot: member.user.bot,
+						discriminator: member.user.discriminator,
+						displayName: member.displayName ? await worker.encrypt(member.displayName) : null,
+						roleId: !!member && hoistedRole(member).id,
+						username: await worker.encrypt(member.user.username),
+					};
+					userQueries.push(
+						this.client.prisma.archivedUser.upsert({
+							create: {
+								...data,
 								ticketId,
 								userId: member.user.id,
 							},
-						},
-					}),
-				);
-				await delay(100);
+							select: { ticketId: true },
+							update: data,
+							where: {
+								ticketId_userId: {
+									ticketId,
+									userId: member.user.id,
+								},
+							},
+						}),
+					);
+					await delay(100);
+				}
 			}
 
 			for (const channel of channels) {
@@ -160,6 +183,10 @@ module.exports = class TicketArchiver {
 
 			await this.client.prisma.$transaction([...roleQueries, ...userQueries, ...channelQueries]);
 			return await this.client.prisma.$transaction(messageQueries);
+		} catch (error) {
+			if (!error.message.includes('Unique constraint failed')) {
+				this.client.log.error('An error occurred:', error);
+			}
 		} finally {
 			await worker.terminate();
 		}
