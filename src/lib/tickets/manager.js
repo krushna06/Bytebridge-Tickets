@@ -1469,6 +1469,20 @@ module.exports = class TicketManager {
 					components,
 					embeds: [embed],
 				});
+				const transcriptChannelId = process.env.TRANSCRIPT_CHANNEL_ID;
+				if (transcriptChannelId) {
+					try {
+						const transcriptsChannel = await this.client.channels.fetch(transcriptChannelId);
+						if (transcriptsChannel && transcriptsChannel.isTextBased()) {
+							await transcriptsChannel.send({
+								components,
+								embeds: [embed],
+							});
+						}
+					} catch (err) {
+						this.client.log.error('Failed to send transcript to transcripts channel', err);
+					}
+				}
 			}
 		} catch (error) {
 			this.client.log.error(error);

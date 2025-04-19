@@ -29,6 +29,7 @@ const env = {
 	PUBLIC_BOT: false,
 	PUBLISH_COMMANDS: false,
 	SUPER: '319467558166069248',
+	TRANSCRIPT_CHANNEL_ID: '',
 };
 
 // check ENCRYPTION_KEY because we don't want to force use of the .env file
