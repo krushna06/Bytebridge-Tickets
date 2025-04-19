@@ -3,7 +3,9 @@ const { ApplicationCommandOptionType } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
 // Add StringSelectMenuBuilder to the imports
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const {
+	ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
+} = require('discord.js');
 
 module.exports = class LeaderboardSlashCommand extends SlashCommand {
 	constructor(client, options) {
@@ -16,17 +18,29 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 			options: [
 				{
 					choices: [
-						{ name: 'Staff Ratings', value: 'rating' },
-						{ name: 'Tickets Claimed', value: 'claimed' },
-						{ name: 'Tickets Resolved', value: 'resolved' },
-						{ name: 'Average Response Time', value: 'response' }
+						{
+							name: 'Staff Ratings',
+							value: 'rating',
+						},
+						{
+							name: 'Tickets Claimed',
+							value: 'claimed',
+						},
+						{
+							name: 'Tickets Resolved',
+							value: 'resolved',
+						},
+						{
+							name: 'Average Response Time',
+							value: 'response',
+						},
 					],
-					name: 'type',
-					type: ApplicationCommandOptionType.String,
 					description: 'Type of leaderboard to view',
-					required: false
-				}
-			]
+					name: 'type',
+					required: false,
+					type: ApplicationCommandOptionType.String,
+				},
+			],
 		});
 	}
 
@@ -35,7 +49,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 		if (!options.type) {
 			await interaction.deferReply();
 		}
-		
+
 		const settings = await this.client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
 
 		// Check if user is staff
@@ -55,144 +69,144 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
 		// Change const to let since we'll modify it
 		// Modified type retrieval to work with both slash commands and menu interactions
-		let type = options.type || interaction.options?.getString('type') || 'rating';
-		
+		const type = options.type || interaction.options?.getString('type') || 'rating';
+
 		const timeRange = new Date();
 		timeRange.setDate(timeRange.getDate() - 30); // Last 30 days
 
 		let title, description, data;
 
 		switch (type) {
-			case 'rating': {
-				const ratings = await this.client.prisma.ticket.findMany({
-					where: {
-						guildId: interaction.guild.id,
-						feedback: { isNot: null },
-						closedAt: { gte: timeRange }
-					},
-					include: {
-						closedBy: true,
-						feedback: true
-					}
-				});
+		case 'rating': {
+			const ratings = await this.client.prisma.ticket.findMany({
+				include: {
+					closedBy: true,
+					feedback: true,
+				},
+				where: {
+					closedAt: { gte: timeRange },
+					feedback: { isNot: null },
+					guildId: interaction.guild.id,
+				},
+			});
 
-				const staffRatings = {};
-				ratings.forEach(ticket => {
-					if (!ticket.closedBy) return;
-					if (!staffRatings[ticket.closedBy.id]) {
-						staffRatings[ticket.closedBy.id] = {
-							ratings: [],
-							total: 0,
-							count: 0
-						};
-					}
-					staffRatings[ticket.closedBy.id].ratings.push(ticket.feedback.rating);
-					staffRatings[ticket.closedBy.id].total += ticket.feedback.rating;
-					staffRatings[ticket.closedBy.id].count++;
-				});
+			const staffRatings = {};
+			ratings.forEach(ticket => {
+				if (!ticket.closedBy) return;
+				if (!staffRatings[ticket.closedBy.id]) {
+					staffRatings[ticket.closedBy.id] = {
+						count: 0,
+						ratings: [],
+						total: 0,
+					};
+				}
+				staffRatings[ticket.closedBy.id].ratings.push(ticket.feedback.rating);
+				staffRatings[ticket.closedBy.id].total += ticket.feedback.rating;
+				staffRatings[ticket.closedBy.id].count++;
+			});
 
-				data = Object.entries(staffRatings)
-					.map(([id, stats]) => ({
-						id,
-						average: stats.total / stats.count,
-						count: stats.count
-					}))
-					.sort((a, b) => b.average - a.average)
-					.slice(0, 10);
+			data = Object.entries(staffRatings)
+				.map(([id, stats]) => ({
+					average: stats.total / stats.count,
+					count: stats.count,
+					id,
+				}))
+				.sort((a, b) => b.average - a.average)
+				.slice(0, 10);
 
-				title = '⭐ Staff Rating Leaderboard';
-				description = 'Top 10 staff members by average rating (last 30 days)';
-				break;
-			}
+			title = '⭐ Staff Rating Leaderboard';
+			description = 'Top 10 staff members by average rating (last 30 days)';
+			break;
+		}
 
-			case 'claimed': {
-				const claimed = await this.client.prisma.ticket.groupBy({
-					by: ['claimedById'],
-					where: {
-						guildId: interaction.guild.id,
-						claimedById: { not: null },
-						createdAt: { gte: timeRange }
-					},
-					_count: true
-				});
+		case 'claimed': {
+			const claimed = await this.client.prisma.ticket.groupBy({
+				_count: true,
+				by: ['claimedById'],
+				where: {
+					claimedById: { not: null },
+					createdAt: { gte: timeRange },
+					guildId: interaction.guild.id,
+				},
+			});
 
-				data = claimed
-					.map(entry => ({
-						id: entry.claimedById,
-						count: entry._count
-					}))
-					.sort((a, b) => b.count - a.count)
-					.slice(0, 10);
+			data = claimed
+				.map(entry => ({
+					count: entry._count,
+					id: entry.claimedById,
+				}))
+				.sort((a, b) => b.count - a.count)
+				.slice(0, 10);
 
-				title = '🎫 Tickets Claimed Leaderboard';
-				description = 'Top 10 staff members by tickets claimed (last 30 days)';
-				break;
-			}
+			title = '🎫 Tickets Claimed Leaderboard';
+			description = 'Top 10 staff members by tickets claimed (last 30 days)';
+			break;
+		}
 
-			case 'resolved': {
-				const resolved = await this.client.prisma.ticket.groupBy({
-					by: ['closedById'],
-					where: {
-						guildId: interaction.guild.id,
-						closedById: { not: null },
-						closedAt: { gte: timeRange }
-					},
-					_count: true
-				});
+		case 'resolved': {
+			const resolved = await this.client.prisma.ticket.groupBy({
+				_count: true,
+				by: ['closedById'],
+				where: {
+					closedAt: { gte: timeRange },
+					closedById: { not: null },
+					guildId: interaction.guild.id,
+				},
+			});
 
-				data = resolved
-					.map(entry => ({
-						id: entry.closedById,
-						count: entry._count
-					}))
-					.sort((a, b) => b.count - a.count)
-					.slice(0, 10);
+			data = resolved
+				.map(entry => ({
+					count: entry._count,
+					id: entry.closedById,
+				}))
+				.sort((a, b) => b.count - a.count)
+				.slice(0, 10);
 
-				title = '✅ Tickets Resolved Leaderboard';
-				description = 'Top 10 staff members by tickets resolved (last 30 days)';
-				break;
-			}
+			title = '✅ Tickets Resolved Leaderboard';
+			description = 'Top 10 staff members by tickets resolved (last 30 days)';
+			break;
+		}
 
-			case 'response': {
-				const tickets = await this.client.prisma.ticket.findMany({
-					where: {
-						guildId: interaction.guild.id,
-						firstResponseAt: { not: null },
-						createdAt: { gte: timeRange }
-					},
-					select: {
-						createdAt: true,
-						firstResponseAt: true,
-						claimedById: true
-					}
-				});
+		case 'response': {
+			const tickets = await this.client.prisma.ticket.findMany({
+				select: {
+					claimedById: true,
+					createdAt: true,
+					firstResponseAt: true,
+				},
+				where: {
+					createdAt: { gte: timeRange },
+					firstResponseAt: { not: null },
+					guildId: interaction.guild.id,
+				},
+			});
 
-				const responseTimes = {};
-				tickets.forEach(ticket => {
-					if (!ticket.claimedById) return;
-					if (!responseTimes[ticket.claimedById]) {
-						responseTimes[ticket.claimedById] = {
-							total: 0,
-							count: 0
-						};
-					}
-					responseTimes[ticket.claimedById].total += ticket.firstResponseAt - ticket.createdAt;
-					responseTimes[ticket.claimedById].count++;
-				});
+			const responseTimes = {};
+			tickets.forEach(ticket => {
+				if (!ticket.claimedById) return;
+				if (!responseTimes[ticket.claimedById]) {
+					responseTimes[ticket.claimedById] = {
+						count: 0,
+						total: 0,
+					};
+				}
+				responseTimes[ticket.claimedById].total += ticket.firstResponseAt - ticket.createdAt;
+				responseTimes[ticket.claimedById].count++;
+			});
 
-				data = Object.entries(responseTimes)
-					.map(([id, stats]) => ({
-						id,
-						average: stats.total / stats.count,
-						count: stats.count
-					}))
-					.sort((a, b) => a.average - b.average) // Faster response time is better
-					.slice(0, 10);
+			data = Object.entries(responseTimes)
+				.map(([id, stats]) => ({
+					average: stats.total / stats.count,
+					count: stats.count,
+					id,
+				}))
+				.sort((a, b) => a.average - b.average) // Faster response time is better
+				.slice(0, 10);
 
-				title = '⚡ Response Time Leaderboard';
-				description = 'Top 10 staff members by average response time (last 30 days)';
-				break;
-			}
+			title = '⚡ Response Time Leaderboard';
+			description = 'Top 10 staff members by average response time (last 30 days)';
+			break;
+		}
 		}
 
 		const embed = new ExtendedEmbedBuilder({
@@ -207,25 +221,28 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 		const entries = await Promise.all(data.map(async (entry, index) => {
 			const member = await interaction.guild.members.fetch(entry.id).catch(() => null);
 			const name = member ? member.displayName : 'Unknown Staff';
-			
+
 			let value;
 			switch (type) {
-				case 'rating':
-					value = `${entry.average.toFixed(1)} ⭐ (${entry.count} ratings)`;
-					break;
-				case 'claimed':
-				case 'resolved':
-					value = `${entry.count} tickets`;
-					break;
-				case 'response':
-					value = `${Math.round(entry.average / 1000 / 60)} minutes avg.`;
-					break;
+			case 'rating':
+				value = `${entry.average.toFixed(1)} ⭐ (${entry.count} ratings)`;
+				break;
+			case 'claimed':
+			case 'resolved':
+				value = `${entry.count} tickets`;
+				break;
+			case 'response':
+				value = `${Math.round(entry.average / 1000 / 60)} minutes avg.`;
+				break;
 			}
 
 			return `${index + 1}. ${name}: ${value}`;
 		}));
 
-		embed.addFields({ name: 'Rankings', value: entries.join('\n') || 'No data available' });
+		embed.addFields({
+			name: 'Rankings',
+			value: entries.join('\n') || 'No data available',
+		});
 
 		await interaction.editReply({ embeds: [embed] });
 
@@ -234,7 +251,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 		let currentPage = 0;
 		const totalPages = Math.ceil(data.length / pageSize);
 
-		const generateEmbed = async (page) => {
+		const generateEmbed = async page => {
 			const startIndex = page * pageSize;
 			const pageEntries = data.slice(startIndex, startIndex + pageSize);
 
@@ -250,39 +267,60 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 			const entries = await Promise.all(pageEntries.map(async (entry, index) => {
 				const member = await interaction.guild.members.fetch(entry.id).catch(() => null);
 				const name = member ? member.displayName : 'Unknown Staff';
-				
+
 				let value;
 				switch (type) {
-					case 'rating':
-						value = `${entry.average.toFixed(1)} ⭐ (${entry.count} ratings)`;
-						break;
-					case 'claimed':
-					case 'resolved':
-						value = `${entry.count} tickets`;
-						break;
-					case 'response':
-						value = `${Math.round(entry.average / 1000 / 60)} minutes avg.`;
-						break;
+				case 'rating':
+					value = `${entry.average.toFixed(1)} ⭐ (${entry.count} ratings)`;
+					break;
+				case 'claimed':
+				case 'resolved':
+					value = `${entry.count} tickets`;
+					break;
+				case 'response':
+					value = `${Math.round(entry.average / 1000 / 60)} minutes avg.`;
+					break;
 				}
 
 				return `${startIndex + index + 1}. ${name}: ${value}`;
 			}));
 
-			embed.addFields({ name: 'Rankings', value: entries.join('\n') || 'No data available' });
+			embed.addFields({
+				name: 'Rankings',
+				value: entries.join('\n') || 'No data available',
+			});
 			return embed;
 		};
 
-		const generateComponents = (page) => {
+		const generateComponents = page => {
 			const selectMenu = new StringSelectMenuBuilder()
-				.setCustomId(JSON.stringify({
-					action: 'leaderboard',
-				}))
+				.setCustomId(JSON.stringify({ action: 'leaderboard' }))
 				.setPlaceholder('Select leaderboard type')
 				.addOptions([
-					{ label: 'Staff Ratings', value: 'rating', emoji: '⭐', default: type === 'rating' },
-					{ label: 'Tickets Claimed', value: 'claimed', emoji: '🎫', default: type === 'claimed' },
-					{ label: 'Tickets Resolved', value: 'resolved', emoji: '✅', default: type === 'resolved' },
-					{ label: 'Average Response Time', value: 'response', emoji: '⚡', default: type === 'response' }
+					{
+						emoji: '⭐',
+						default: type === 'rating',
+						label: 'Staff Ratings',
+						value: 'rating',
+					},
+					{
+						emoji: '🎫',
+						default: type === 'claimed',
+						label: 'Tickets Claimed',
+						value: 'claimed',
+					},
+					{
+						emoji: '✅',
+						default: type === 'resolved',
+						label: 'Tickets Resolved',
+						value: 'resolved',
+					},
+					{
+						emoji: '⚡',
+						default: type === 'response',
+						label: 'Average Response Time',
+						value: 'response',
+					},
 				]);
 
 			const buttons = new ActionRowBuilder().addComponents(
@@ -295,7 +333,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 					.setCustomId('next_page')
 					.setLabel('Next')
 					.setStyle(ButtonStyle.Secondary)
-					.setDisabled(page >= totalPages - 1)
+					.setDisabled(page >= totalPages - 1),
 			);
 
 			return [new ActionRowBuilder().addComponents(selectMenu), buttons];
@@ -303,28 +341,28 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
 		// Replace the response section with this:
 		const response = await interaction.editReply({
+			components: generateComponents(currentPage),
 			embeds: [await generateEmbed(currentPage)],
-			components: generateComponents(currentPage)
 		});
 
 		// Update the collector section:
 		const collector = response.createMessageComponentCollector({
 			filter: i => i.user.id === interaction.user.id,
-			time: 300000 // 5 minutes timeout
+			time: 300000, // 5 minutes timeout
 		});
 
 		collector.on('collect', async i => {
 			if (i.customId === 'prev_page') {
 				currentPage--;
 				await i.update({
+					components: generateComponents(currentPage),
 					embeds: [await generateEmbed(currentPage)],
-					components: generateComponents(currentPage)
 				});
 			} else if (i.customId === 'next_page') {
 				currentPage++;
 				await i.update({
+					components: generateComponents(currentPage),
 					embeds: [await generateEmbed(currentPage)],
-					components: generateComponents(currentPage)
 				});
 			}
 		});
@@ -332,8 +370,8 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 		collector.on('end', () => {
 			// Remove all components when collector expires
 			interaction.editReply({
-				embeds: [initialEmbed],
-				components: []
+				components: [],
+				embeds: [generateEmbed(currentPage)],
 			}).catch(() => {});
 		});
 	}

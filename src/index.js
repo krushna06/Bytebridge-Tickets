@@ -80,17 +80,17 @@ client.login().then(() => {
 });
 
 
-const { MessageFlags, InteractionResponse } = require('discord.js');
+const { MessageFlags } = require('discord.js');
 
 function patchEphemeralResponse(proto, method) {
-    const original = proto[method];
-    proto[method] = function (options = {}) {
-        if (options && typeof options === 'object' && options.ephemeral === true) {
-            options.flags = MessageFlags.Ephemeral;
-            delete options.ephemeral;
-        }
-        return original.call(this, options);
-    };
+	const original = proto[method];
+	proto[method] = function (options = {}) {
+		if (options && typeof options === 'object' && options.ephemeral === true) {
+			options.flags = MessageFlags.Ephemeral;
+			delete options.ephemeral;
+		}
+		return original.call(this, options);
+	};
 }
 
 const djs = require('discord.js');
@@ -104,7 +104,7 @@ if (djs.AnySelectMenuInteraction) interactionProtos.push(djs.AnySelectMenuIntera
 if (djs.MessageComponentInteraction) interactionProtos.push(djs.MessageComponentInteraction.prototype);
 
 for (const proto of interactionProtos) {
-    if (proto.deferReply) patchEphemeralResponse(proto, 'deferReply');
-    if (proto.reply) patchEphemeralResponse(proto, 'reply');
-    if (proto.editReply) patchEphemeralResponse(proto, 'editReply');
+	if (proto.deferReply) patchEphemeralResponse(proto, 'deferReply');
+	if (proto.reply) patchEphemeralResponse(proto, 'reply');
+	if (proto.editReply) patchEphemeralResponse(proto, 'editReply');
 }

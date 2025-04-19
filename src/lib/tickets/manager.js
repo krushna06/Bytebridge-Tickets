@@ -32,14 +32,14 @@ const path = require('path');
 const fs = require('fs/promises');
 
 const REASON_MAP = {
-    ticket_answered: 'Ticket answered. Read transcript for details.',
-    action_taken: 'Action Taken! Thank you for contacting Fusion Network.',
-    issue_resolved: 'Issue resolved! Thank you for contacting Fusion Network.',
-    report_reviewed_steps: 'Report reviewed and necessary steps taken. Thank you for your help.',
-    report_reviewed_safety: 'Report reviewed. Steps taken. Thanks for keeping the community safe.',
-    bug_report_reviewed: 'Bug noted. Team will fix soon. Thanks for helping improve Fusion Network.',
-    appeal_accepted: 'Appeal accepted. Follow the rules moving forward. Welcome back!',
-    appeal_denied: 'Appeal denied. Punishment remains due to evidence/past history.'
+	action_taken: 'Action Taken! Thank you for contacting Fusion Network.',
+	appeal_accepted: 'Appeal accepted. Follow the rules moving forward. Welcome back!',
+	issue_resolved: 'Issue resolved! Thank you for contacting Fusion Network.',
+	report_reviewed_safety: 'Report reviewed. Steps taken. Thanks for keeping the community safe.',
+	ticket_answered: 'Ticket answered. Read transcript for details.',
+	appeal_denied: 'Appeal denied. Punishment remains due to evidence/past history.',
+	report_reviewed_steps: 'Report reviewed and necessary steps taken. Thank you for your help.',
+	bug_report_reviewed: 'Bug noted. Team will fix soon. Thanks for helping improve Fusion Network.',
 };
 
 /**
@@ -1276,86 +1276,86 @@ module.exports = class TicketManager {
 			data.pinnedMessageIds = [...pinned.keys()];
 		}
 
-		
-			ticket = await this.client.prisma.ticket.update({
-				data,
-				include: {
-					category: true,
-					feedback: true,
-					guild: true,
-				},
-				where: { id: ticket.id },
-			});
+
+		ticket = await this.client.prisma.ticket.update({
+			data,
+			include: {
+				category: true,
+				feedback: true,
+				guild: true,
+			},
+			where: { id: ticket.id },
+		});
 
 		// create transcript
 		let transcriptUrl = null;
 		try {
-		const html = await createTranscript(channel, {
-			limit: -1,
-			returnType: 'string',
-		});
+			const html = await createTranscript(channel, {
+				limit: -1,
+				returnType: 'string',
+			});
 
-		const outputDir = process.env.TRANSCRIPT_OUTPUT_DIR;
-		const outputPath = path.join(outputDir, `${ticketId}.html`);
-		const transcriptUrlBase = process.env.TRANSCRIPT_URL;
+			const outputDir = process.env.TRANSCRIPT_OUTPUT_DIR;
+			const outputPath = path.join(outputDir, `${ticketId}.html`);
+			const transcriptUrlBase = process.env.TRANSCRIPT_URL;
 
-		await fs.writeFile(outputPath, html);
-		transcriptUrl = `${transcriptUrlBase}${ticketId}`;
+			await fs.writeFile(outputPath, html);
+			transcriptUrl = `${transcriptUrlBase}${ticketId}`;
 		} catch (err) {
-		this.client.log.error('Transcript creation failed', err);
+			this.client.log.error('Transcript creation failed', err);
 		}
 
 		// delete the channel
 		if (channel.deletable) {
-		const member = closedBy
-			? channel.guild.members.cache.get(closedBy)
-			: null;
-		const reasonText = reason ? `: ${reason}` : '';
-		await channel.delete(`Ticket closed by ${member?.displayName || 'System'}${reasonText}`);
+			const member = closedBy
+				? channel.guild.members.cache.get(closedBy)
+				: null;
+			const reasonText = reason ? `: ${reason}` : '';
+			await channel.delete(`Ticket closed by ${member?.displayName || 'System'}${reasonText}`);
 		}
 
 		logTicketEvent(this.client, {
-			userId: closedBy || this.client.user.id,
 			action: 'close',
+			diff: {},
+			userId: closedBy || this.client.user.id,
+			directTicket: ticket,
 			target: {
 			  archive: ticket.guild.archive,
 			  id: ticket.id,
 			  name: `${ticket.category.name} **#${ticket.number}**`,
 			  reason,
 			},
-			diff: {},
 			transcriptUrl,
-			directTicket: ticket,
 		  });
 
 		  const fields = {
+			  closed: {
+				  inline: true,
+				  name: getMessage('dm.closed.fields.closed.name'),
+				  value: getMessage('dm.closed.fields.closed.value', {
+					  duration: ms(ticket.closedAt - ticket.createdAt, { long: true }),
+					  timestamp: `<t:${Math.floor(ticket.closedAt / 1000)}:f>`,
+				  }),
+			  },
+			  created: {
+				  inline: true,
+				  name: getMessage('dm.closed.fields.created'),
+				  value: `<t:${Math.floor(ticket.createdAt / 1000)}:f>`,
+			  },
 			topic: {
 				inline: true,
 				name: getMessage('dm.closed.fields.topic'),
 				value: ticket.topic ? await quick('crypto', worker => worker.decrypt(ticket.topic)) : getMessage('ticket.answers.no_value'),
 			},
-			created: {
+			feedback: ticket.feedback && {
 				inline: true,
-				name: getMessage('dm.closed.fields.created'),
-				value: `<t:${Math.floor(ticket.createdAt / 1000)}:f>`,
-			},
-			closed: {
-				inline: true,
-				name: getMessage('dm.closed.fields.closed.name'),
-				value: getMessage('dm.closed.fields.closed.value', {
-					duration: ms(ticket.closedAt - ticket.createdAt, { long: true }),
-					timestamp: `<t:${Math.floor(ticket.closedAt / 1000)}:f>`,
-				}),
+				name: getMessage('dm.closed.fields.feedback'),
+				value: Array(ticket.feedback.rating).fill('⭐').join(' ') + ` (${ticket.feedback.rating}/5)`,
 			},
 			firstResponseAt: ticket.firstResponseAt && {
 				inline: true,
 				name: getMessage('dm.closed.fields.response'),
 				value: ms(ticket.firstResponseAt - ticket.createdAt, { long: true }),
-			},
-			feedback: ticket.feedback && {
-				inline: true,
-				name: getMessage('dm.closed.fields.feedback'),
-				value: Array(ticket.feedback.rating).fill('⭐').join(' ') + ` (${ticket.feedback.rating}/5)`,
 			},
 			reason: {
 				inline: true,
@@ -1433,10 +1433,10 @@ module.exports = class TicketManager {
 
 				if (reason) {
 					embed.addFields({
-                        inline: true,
-                        name: getMessage('dm.closed.fields.reason'),
-                        value: REASON_MAP[reason] || reason || getMessage('dm.closed.fields.no_reason'),
-                    });
+						inline: true,
+						name: getMessage('dm.closed.fields.reason'),
+						value: REASON_MAP[reason] || reason || getMessage('dm.closed.fields.no_reason'),
+					});
 				}
 
 				if (transcriptUrl) {
@@ -1464,7 +1464,7 @@ module.exports = class TicketManager {
 							),
 					);
 				}
-				
+
 				await creator.send({
 					components,
 					embeds: [embed],

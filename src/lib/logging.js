@@ -148,19 +148,19 @@ async function logTicketEvent(client, {
 	// If directTicket is provided, skip "getTicket" call:
 	let ticket;
 	if (directTicket) {
-	ticket = directTicket;
+		ticket = directTicket;
 	} else {
 	// fallback to getTicket if not provided
-	ticket = await client.tickets.getTicket(target.id);
+		ticket = await client.tickets.getTicket(target.id);
 	}
 	if (!ticket) return;
-	
+
 	// Convert or re-hydrate if they're strings:
 	if (ticket.createdAt && typeof ticket.createdAt === 'string') {
-	ticket.createdAt = new Date(ticket.createdAt);
+		ticket.createdAt = new Date(ticket.createdAt);
 	}
 	if (ticket.closedAt && typeof ticket.closedAt === 'string') {
-	ticket.closedAt = new Date(ticket.closedAt);
+		ticket.closedAt = new Date(ticket.closedAt);
 	}
 
 	// Basic log channel checks
@@ -184,11 +184,11 @@ async function logTicketEvent(client, {
 	// Determine embed color based on action
 	const colour =
 		action === 'create' ? 'Aqua'
-		: action === 'close' ? 'DarkAqua'
-		: action === 'update' ? 'Purple'
-		: action === 'claim'  ? 'LuminousVividPink'
-		: action === 'unclaim' ? 'DarkVividPink'
-		: 'Default';
+			: action === 'close' ? 'DarkAqua'
+				: action === 'update' ? 'Purple'
+					: action === 'claim'  ? 'LuminousVividPink'
+						: action === 'unclaim' ? 'DarkVividPink'
+							: 'Default';
 
 	// Build embed
 	const embed = new EmbedBuilder()
@@ -203,17 +203,15 @@ async function logTicketEvent(client, {
 			{
 			  name: 'Ticket Details',
 			  value: target.name
-				? `${target.name} (\`${target.id}\`)`
-				: target.id,
+					? `${target.name} (\`${target.id}\`)`
+					: target.id,
 			},
 		  ]);
 
 	// If closing, add opened by/date, closed by/date, and @mentions
 	const openedAt = ticket.createdAt ? new Date(ticket.createdAt) : null;
 	const closedAt = ticket.closedAt ? new Date(ticket.closedAt) : null;
-	const participants = await client.prisma.archivedUser.findMany({
-		where: { ticketId: ticket.id },
-	});
+	const participants = await client.prisma.archivedUser.findMany({ where: { ticketId: ticket.id } });
 	const mentionList = participants.map(u => `<@${u.userId}>`).join(', ');
 
 	if (action === 'close') {
@@ -221,7 +219,7 @@ async function logTicketEvent(client, {
 			{
 				name: '\n',
 				value: '\n',
-            },
+			},
 			{
 				inline: true,
 				name: 'Ticket Transcript',
@@ -230,7 +228,7 @@ async function logTicketEvent(client, {
 			{
 				name: '\n',
 				value: '\n',
-            },
+			},
 			{
 				inline: true,
 				name: 'Ticket Participants',
@@ -239,18 +237,18 @@ async function logTicketEvent(client, {
 			{
 				name: '\n',
 				value: '\n',
-            },
+			},
 			{
 				inline: true,
 				name: 'Opened by/date',
 				value: `${
 					ticket.createdById
-					? `<@${ticket.createdById}>`
-					: 'N/A'
+						? `<@${ticket.createdById}>`
+						: 'N/A'
 				} \n${
 					openedAt
-					? `<t:${Math.floor(openedAt.getTime() / 1000)}:f>`
-					: 'N/A'
+						? `<t:${Math.floor(openedAt.getTime() / 1000)}:f>`
+						: 'N/A'
 				}`,
 			},
 			{
@@ -258,12 +256,12 @@ async function logTicketEvent(client, {
 				name: 'Closed by/date',
 				value: `${
 					ticket.closedById
-					? `<@${ticket.closedById}>`
-					: 'N/A'
+						? `<@${ticket.closedById}>`
+						: 'N/A'
 				} \n${
 					closedAt
-					? `<t:${Math.floor(closedAt.getTime() / 1000)}:f>`
-					: 'N/A'
+						? `<t:${Math.floor(closedAt.getTime() / 1000)}:f>`
+						: 'N/A'
 				}`,
 			},
 		);
@@ -285,7 +283,7 @@ async function logTicketEvent(client, {
 				.setFields(makeDiff(diff)),
 		);
 	}
-	
+
 	const embeds = [embed];
 	return await channel.send({
 		components:

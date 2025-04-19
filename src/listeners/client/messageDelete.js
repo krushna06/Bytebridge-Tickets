@@ -61,24 +61,21 @@ module.exports = class extends Listener {
 		// modified version for our transcripts/participants and dates
 		if (ticket.guild.archive) {
 			// first see if the archived row exists
-			const existing = await client.prisma.archivedMessage.findUnique({
-			  where: { id: message.id },
-			});
-		  
+			const existing = await client.prisma.archivedMessage.findUnique({ where: { id: message.id } });
+
 			if (!existing) {
+				console.log(`Archived message ${message.id} can't be marked as deleted because it doesn't exist`);
 			} else {
 			  // we found a row, so do the update
 			  await client.prisma.archivedMessage.update({
-				data: { deleted: true },
-				where: { id: message.id },
+					data: { deleted: true },
+					where: { id: message.id },
 			  });
 			  // same logic for reading `archived.content` if needed
-			  const archived = await client.prisma.archivedMessage.findUnique({
-				where: { id: message.id },
-			  });
+			  const archived = await client.prisma.archivedMessage.findUnique({ where: { id: message.id } });
 			  if (archived?.content && !content) {
-				const string = await quick('crypto', w => w.decrypt(archived.content));
-				content = JSON.parse(string).content;
+					const string = await quick('crypto', w => w.decrypt(archived.content));
+					content = JSON.parse(string).content;
 			  }
 			}
 		  }

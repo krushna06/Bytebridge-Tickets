@@ -1,7 +1,5 @@
 const { SlashCommand } = require('@eartharoid/dbf');
-const { isStaff } = require('../../lib/users');
 const ExtendedEmbedBuilder = require('../../lib/embed');
-const { version } = require('../../../package.json');
 
 module.exports = class HelpSlashCommand extends SlashCommand {
 	constructor(client, options) {
@@ -30,19 +28,17 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 		// Split commands into categories
 		const commandCategories = {
 			general: ['help', 'new', 'tickets', 'tag'],
-			ticket: ['close', 'topic', 'rename', 'transcript'],
-			staff: ['claim', 'release', 'force-close', 'move', 'priority'],
 			members: ['add', 'remove', 'transfer'],
 			notes: ['note', 'stickynotes', 'viewnotes'],
-			stats: ['leaderboard', 'stats', 'viewprofile', 'setprofile']
+			staff: ['claim', 'release', 'force-close', 'move', 'priority'],
+			stats: ['leaderboard', 'stats', 'viewprofile', 'setprofile'],
+			ticket: ['close', 'topic', 'rename', 'transcript'],
 		};
 
 		const embed = new ExtendedEmbedBuilder()
 			.setColor(settings.primaryColour)
 			.setTitle(getMessage('commands.slash.help.response.commands'))
-			.setDescription(getMessage('commands.slash.help.response.description', {
-				command: '</new:' + commands.find(cmd => cmd.name === 'new')?.id + '>'
-			}));
+			.setDescription(getMessage('commands.slash.help.response.description', { command: '</new:' + commands.find(cmd => cmd.name === 'new')?.id + '>' }));
 
 		// Create fields for each category
 		for (const [category, commandList] of Object.entries(commandCategories)) {
@@ -54,7 +50,7 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 			if (categoryCommands) {
 				embed.addFields({
 					name: category.charAt(0).toUpperCase() + category.slice(1),
-					value: categoryCommands
+					value: categoryCommands,
 				});
 			}
 		}
@@ -65,8 +61,8 @@ module.exports = class HelpSlashCommand extends SlashCommand {
 				`[${getMessage('commands.slash.help.response.links.docs')}](https://discordtickets.app/docs)`,
 				`[${getMessage('commands.slash.help.response.links.commands')}](https://discordtickets.app/commands)`,
 				`[${getMessage('commands.slash.help.response.links.support')}](https://discord.gg/discord-tickets)`,
-				`[${getMessage('commands.slash.help.response.links.feedback')}](https://discord.gg/discord-tickets/feedback)`
-			].join('\n')
+				`[${getMessage('commands.slash.help.response.links.feedback')}](https://discord.gg/discord-tickets/feedback)`,
+			].join('\n'),
 		});
 
 		return interaction.reply({ embeds: [embed] });
