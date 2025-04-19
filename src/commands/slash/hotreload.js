@@ -1,0 +1,50 @@
+const { SlashCommand } = require('@eartharoid/dbf');
+const { ApplicationCommandOptionType } = require('discord.js');
+const path = require('path');
+
+const SUPER = (process.env.SUPER || '').split(',').map(id => id.trim());
+
+module.exports = class HotReloadSlashCommand extends SlashCommand {
+	constructor(client, options) {
+		super(client, {
+			...options,
+			name: 'hotreload',
+			description: 'Reload all code without restarting the bot (super users only)',
+			dmPermission: false,
+		});
+	}
+
+	/**
+	 * @param {import("discord.js").ChatInputCommandInteraction} interaction
+	 */
+	async run(interaction) {
+		if (!SUPER.includes(interaction.user.id)) {
+			return interaction.reply({
+				content: '❌ You do not have permission to use this command.',
+				ephemeral: true,
+			});
+		}
+
+		await interaction.deferReply({ ephemeral: true });
+
+		this.client.log.warn(`[HOTRELOAD] Requested by ${interaction.user.tag} (${interaction.user.id})`);
+		this.client.log.info('Clearing require cache for project files...');
+
+		for (const key of Object.keys(require.cache)) {
+			if (
+				key.startsWith(path.resolve(__dirname, '..', '..')) &&
+				!key.includes('node_modules')
+			) {
+				delete require.cache[key];
+			}
+		}
+
+		this.client.log.info('Reinitialising client...');
+		await this.client.init(true);
+		this.client.log.success('Client hot-reloaded');
+
+		await interaction.editReply({
+			content: '✅ Hot-reload complete! All modules have been reloaded.',
+		});
+	}
+};
