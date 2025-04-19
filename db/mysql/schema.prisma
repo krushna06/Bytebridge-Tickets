@@ -223,6 +223,29 @@ model Ticket {
     @@map("tickets")
 }
 
+model StatsMessage {
+    guildId   String @id @db.VarChar(19)
+    channelId String @db.VarChar(19)
+    messageId String @db.VarChar(19)
+
+    @@map("StatsMessage")
+}
+
+model Note {
+    id          String   @id @db.VarChar(19)
+    createdAt   DateTime @default(now())
+    content     String   @db.Text
+    creatorId   String   @db.VarChar(19)
+    creatorName String
+    targetId    String   @db.VarChar(19)
+    guildId     String   @db.VarChar(19)
+
+    @@index([targetId])
+    @@index([guildId])
+    @@map("notes")
+}
+
+// Update User model to include new fields
 model User {
     createdAt       DateTime         @default(now())
     feedback        Feedback[]

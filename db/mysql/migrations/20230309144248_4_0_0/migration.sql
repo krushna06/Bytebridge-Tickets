@@ -260,3 +260,27 @@ ALTER TABLE `tickets` ADD CONSTRAINT `tickets_referencesTicketId_fkey` FOREIGN K
 ALTER TABLE users
 ADD COLUMN bio TEXT NULL,
 ADD COLUMN activeHours TEXT NULL DEFAULT '[]';
+
+-- CreateTable
+CREATE TABLE `StatsMessage` (
+    `guildId` VARCHAR(19) NOT NULL,
+    `channelId` VARCHAR(19) NOT NULL,
+    `messageId` VARCHAR(19) NOT NULL,
+
+    PRIMARY KEY (`guildId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `notes` (
+    `id` VARCHAR(19) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `content` TEXT NOT NULL,
+    `creatorId` VARCHAR(19) NOT NULL,
+    `creatorName` VARCHAR(191) NOT NULL,
+    `targetId` VARCHAR(19) NOT NULL,
+    `guildId` VARCHAR(19) NOT NULL,
+
+    INDEX `notes_targetId_idx`(`targetId`),
+    INDEX `notes_guildId_idx`(`guildId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
