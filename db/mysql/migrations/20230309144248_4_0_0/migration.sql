@@ -302,7 +302,3 @@ CREATE TABLE IF NOT EXISTS notes (
     createdAt DATETIME NOT NULL,
     updatedAt DATETIME NOT NULL
 );
-
-ALTER TABLE users
-    ADD COLUMN bio TEXT,
-    ADD COLUMN activeHours TEXT;
