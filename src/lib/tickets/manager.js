@@ -1328,6 +1328,44 @@ module.exports = class TicketManager {
 			directTicket: ticket,
 		  });
 
+		  const fields = {
+			topic: {
+				inline: true,
+				name: getMessage('dm.closed.fields.topic'),
+				value: ticket.topic ? await quick('crypto', worker => worker.decrypt(ticket.topic)) : getMessage('ticket.answers.no_value'),
+			},
+			created: {
+				inline: true,
+				name: getMessage('dm.closed.fields.created'),
+				value: `<t:${Math.floor(ticket.createdAt / 1000)}:f>`,
+			},
+			closed: {
+				inline: true,
+				name: getMessage('dm.closed.fields.closed.name'),
+				value: getMessage('dm.closed.fields.closed.value', {
+					duration: ms(ticket.closedAt - ticket.createdAt, { long: true }),
+					timestamp: `<t:${Math.floor(ticket.closedAt / 1000)}:f>`,
+				}),
+			},
+			firstResponseAt: ticket.firstResponseAt && {
+				inline: true,
+				name: getMessage('dm.closed.fields.response'),
+				value: ms(ticket.firstResponseAt - ticket.createdAt, { long: true }),
+			},
+			feedback: ticket.feedback && {
+				inline: true,
+				name: getMessage('dm.closed.fields.feedback'),
+				value: Array(ticket.feedback.rating).fill('⭐').join(' ') + ` (${ticket.feedback.rating}/5)`,
+			},
+			reason: {
+				inline: true,
+				name: getMessage('dm.closed.fields.reason'),
+				value: REASON_MAP[reason] || reason || getMessage('dm.closed.fields.no_reason'),
+			},
+		};
+
+		let components = [];
+
 		try {
 			const creator = channel?.guild.members.cache.get(ticket.createdById);
 			if (creator) {
@@ -1343,7 +1381,6 @@ module.exports = class TicketManager {
 							name: getMessage('dm.closed.fields.ticket'),
 							value: `${ticket.category.name} **#${ticket.number}**`,
 						},
-
 					]);
 				if (ticket.topic) {
 					embed.addFields({
@@ -1410,8 +1447,7 @@ module.exports = class TicketManager {
 					});
 				}
 
-				const components = [];
-
+				components = [];
 				if (ticket.guild.archive) {
 					components.push(
 						new ActionRowBuilder()
