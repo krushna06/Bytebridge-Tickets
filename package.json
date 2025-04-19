@@ -12,7 +12,7 @@
 		"lint": "eslint src scripts --fix",
 		"preinstall": "node scripts/preinstall",
 		"postinstall": "node scripts/postinstall",
-		"start": "node .",
+		"start": "node --no-warnings .",
 		"studio": "npx prisma studio",
 		"test": "node scripts/check-i18n",
 		"__prepare": "husky install"
