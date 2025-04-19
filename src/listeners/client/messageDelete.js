@@ -64,7 +64,7 @@ module.exports = class extends Listener {
 			const existing = await client.prisma.archivedMessage.findUnique({ where: { id: message.id } });
 
 			if (!existing) {
-				console.log(`Archived message ${message.id} can't be marked as deleted because it doesn't exist`);
+				// console.log(`Archived message ${message.id} can't be marked as deleted because it doesn't exist`);
 			} else {
 			  // we found a row, so do the update
 			  await client.prisma.archivedMessage.update({

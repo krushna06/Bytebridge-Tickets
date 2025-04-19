@@ -38,20 +38,25 @@ module.exports = class TicketArchiver {
 		const worker = await reusable('crypto');
 
 		try {
-			const queries = [];
+			const userQueries = [];
+			const roleQueries = [];
+			const channelQueries = [];
+			const messageQueries = [];
 
 			members.add(message.member);
 
 			for (const member of members) {
-				roles.add(hoistedRole(member));
+				const role = hoistedRole(member);
+				if (role) roles.add(role);
 			}
 
 			for (const role of roles) {
+				if (!role.id || !ticketId) continue;
 				const data = {
 					colour: role.hexColor.slice(1),
 					name: role.name,
 				};
-				queries.push(
+				roleQueries.push(
 					this.client.prisma.archivedRole.upsert({
 						create: {
 							...data,
@@ -72,14 +77,14 @@ module.exports = class TicketArchiver {
 
 			for (const member of members) {
 				const data = {
-					avatar: member.avatar || member.user.avatar, // TODO: save avatar in user/avatars/
+					avatar: member.avatar || member.user.avatar,
 					bot: member.user.bot,
 					discriminator: member.user.discriminator,
 					displayName: member.displayName ? await worker.encrypt(member.displayName) : null,
 					roleId: !!member && hoistedRole(member).id,
 					username: await worker.encrypt(member.user.username),
 				};
-				queries.push(
+				userQueries.push(
 					this.client.prisma.archivedUser.upsert({
 						create: {
 							...data,
@@ -104,7 +109,7 @@ module.exports = class TicketArchiver {
 					name: channel.name,
 					ticketId,
 				};
-				queries.push(
+				channelQueries.push(
 					this.client.prisma.archivedChannel.upsert({
 						create: data,
 						select: { ticketId: true },
@@ -134,7 +139,7 @@ module.exports = class TicketArchiver {
 				external,
 			};
 
-			queries.push(
+			messageQueries.push(
 				this.client.prisma.archivedMessage.upsert({
 					create: {
 						...data,
@@ -148,7 +153,8 @@ module.exports = class TicketArchiver {
 				}),
 			);
 
-			return await this.client.prisma.$transaction(queries);
+			await this.client.prisma.$transaction([...roleQueries, ...userQueries, ...channelQueries]);
+			return await this.client.prisma.$transaction(messageQueries);
 		} finally {
 			await worker.terminate();
 		}
