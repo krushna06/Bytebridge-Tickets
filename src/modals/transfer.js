@@ -28,7 +28,6 @@ module.exports = class TransferModal extends Modal {
 
     await interaction.deferReply();
 
-    // Get ticket details with question answers count for button display
     const ticket = await client.prisma.ticket.findUnique({
       include: {
         claimedBy: true,

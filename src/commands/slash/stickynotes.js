@@ -2,6 +2,7 @@ const { SlashCommand } = require('@eartharoid/dbf');
 const { ApplicationCommandOptionType } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
+const { randomBytes } = require('crypto');
 
 module.exports = class StickyNotesSlashCommand extends SlashCommand {
     constructor(client, options) {
@@ -45,8 +46,12 @@ module.exports = class StickyNotesSlashCommand extends SlashCommand {
         const member = interaction.options.getMember('member', true);
         const noteContent = interaction.options.getString('note', true);
 
+        // Generate a random ID for the note
+        const noteId = randomBytes(8).toString('hex');
+
         await this.client.prisma.note.create({
             data: {
+                id: noteId,
                 content: noteContent,
                 creatorId: interaction.user.id,
                 creatorName: interaction.user.username,
