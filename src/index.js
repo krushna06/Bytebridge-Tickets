@@ -101,3 +101,33 @@ log = client.log;
 client.login().then(() => {
 	http(client);
 });
+
+
+const { MessageFlags, InteractionResponse } = require('discord.js');
+
+function patchEphemeralResponse(proto, method) {
+    const original = proto[method];
+    proto[method] = function (options = {}) {
+        if (options && typeof options === 'object' && options.ephemeral === true) {
+            options.flags = MessageFlags.Ephemeral;
+            delete options.ephemeral;
+        }
+        return original.call(this, options);
+    };
+}
+
+const djs = require('discord.js');
+const interactionProtos = [];
+
+if (djs.BaseInteraction) interactionProtos.push(djs.BaseInteraction.prototype);
+if (djs.CommandInteraction) interactionProtos.push(djs.CommandInteraction.prototype);
+if (djs.ButtonInteraction) interactionProtos.push(djs.ButtonInteraction.prototype);
+if (djs.ModalSubmitInteraction) interactionProtos.push(djs.ModalSubmitInteraction.prototype);
+if (djs.AnySelectMenuInteraction) interactionProtos.push(djs.AnySelectMenuInteraction.prototype);
+if (djs.MessageComponentInteraction) interactionProtos.push(djs.MessageComponentInteraction.prototype);
+
+for (const proto of interactionProtos) {
+    if (proto.deferReply) patchEphemeralResponse(proto, 'deferReply');
+    if (proto.reply) patchEphemeralResponse(proto, 'reply');
+    if (proto.editReply) patchEphemeralResponse(proto, 'editReply');
+}
