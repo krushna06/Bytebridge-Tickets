@@ -31,6 +31,17 @@ const { createTranscript } = require('discord-html-transcripts');
 const path = require('path');
 const fs = require('fs/promises');
 
+const REASON_MAP = {
+    ticket_answered: 'Ticket answered. Read transcript for details.',
+    action_taken: 'Action Taken! Thank you for contacting Fusion Network.',
+    issue_resolved: 'Issue resolved! Thank you for contacting Fusion Network.',
+    report_reviewed_steps: 'Report reviewed and necessary steps taken. Thank you for your help.',
+    report_reviewed_safety: 'Report reviewed. Steps taken. Thanks for keeping the community safe.',
+    bug_report_reviewed: 'Bug noted. Team will fix soon. Thanks for helping improve Fusion Network.',
+    appeal_accepted: 'Appeal accepted. Follow the rules moving forward. Welcome back!',
+    appeal_denied: 'Appeal denied. Punishment remains due to evidence/past history.'
+};
+
 /**
  * @typedef {import('@prisma/client').Category &
  * 	{guild: import('@prisma/client').Guild} &
@@ -1055,6 +1066,8 @@ module.exports = class TicketManager {
 	 * @param {import("discord.js").ChatInputCommandInteraction|import("discord.js").ButtonInteraction} interaction
 	 */
 	async beforeRequestClose(interaction) {
+		const shortReason = interaction.options?.getString('reason', false) || null;
+		const reason = REASON_MAP[shortReason] || shortReason || null;
 		const ticket = await this.getTicket(interaction.channel.id);
 		if (!ticket) {
 			await interaction.deferReply({ ephemeral: true });
@@ -1085,7 +1098,7 @@ module.exports = class TicketManager {
 
 		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 		const staff = await isStaff(interaction.guild, interaction.user.id);
-		const reason = interaction.options?.getString('reason', false) || null; // ?. because it could be a button interaction
+		// const reason = interaction.options?.getString('reason', false) || null; // REMOVE THIS LINE
 
 		if (ticket.createdById !== interaction.user.id && !staff) {
 			return await interaction.editReply({
@@ -1105,7 +1118,7 @@ module.exports = class TicketManager {
 		) {
 			return await interaction.showModal(this.buildFeedbackModal(ticket.guild.locale, {
 				next: 'requestClose',
-				reason, // known issue: a reason longer than a few words will cause an error due to 100 character custom_id limit
+				reason: shortReason, // known issue: a reason longer than a few words will cause an error due to 100 character custom_id limit
 			}));
 		}
 
@@ -1383,10 +1396,10 @@ module.exports = class TicketManager {
 
 				if (reason) {
 					embed.addFields({
-						inline: true,
-						name: getMessage('dm.closed.fields.reason'),
-						value: reason,
-					});
+                        inline: true,
+                        name: getMessage('dm.closed.fields.reason'),
+                        value: REASON_MAP[reason] || reason || getMessage('dm.closed.fields.no_reason'),
+                    });
 				}
 
 				if (transcriptUrl) {
