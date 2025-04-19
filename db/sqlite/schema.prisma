@@ -242,3 +242,17 @@ model StatsMessage {
     channelId String
     messageId String
 }
+
+model Note {
+    id          String   @id @default(uuid())
+    createdAt   DateTime @default(now())
+    content     String
+    creatorId   String
+    creatorName String
+    targetId    String
+    guildId     String
+
+    @@index([targetId])
+    @@index([guildId])
+    @@map("notes")
+}

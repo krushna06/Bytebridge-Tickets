@@ -218,3 +218,20 @@ CREATE TABLE "StatsMessage" (
 
     CONSTRAINT "StatsMessage_pkey" PRIMARY KEY ("guildId")
 );
+
+-- CreateTable
+CREATE TABLE "notes" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "content" TEXT NOT NULL,
+    "creatorId" TEXT NOT NULL,
+    "creatorName" TEXT NOT NULL,
+    "targetId" TEXT NOT NULL,
+    "guildId" TEXT NOT NULL
+);
+
+-- CreateIndex
+CREATE INDEX "notes_targetId_idx" ON "notes"("targetId");
+
+-- CreateIndex
+CREATE INDEX "notes_guildId_idx" ON "notes"("guildId");
