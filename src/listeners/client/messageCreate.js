@@ -190,9 +190,9 @@ module.exports = class extends Listener {
 				if (settings.archive) {
 					client.tickets.archiver.saveMessage(ticket.id, message)
 						.catch(error => {
-							client.log.warn('Failed to archive message', message.id);
-							client.log.error(error);
-							message.react('❌').catch(client.log.error);
+							// client.log.warn('Failed to archive message', message.id);
+							// client.log.error(error);
+							// message.react('❌').catch(client.log.error);
 						});
 				}
 
@@ -213,10 +213,26 @@ module.exports = class extends Listener {
 						ticket.firstResponseAt === null &&
 						await isStaff(message.guild, message.author.id)
 					) data.firstResponseAt = new Date();
-					ticket = await client.prisma.ticket.update({
-						data,
-						where: { id: ticket.id },
-					});
+					async function updateTicketWithRetry(prisma, ticketId, updateData, maxRetries = 3, delay = 100) {
+					    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+					        try {
+					            return await prisma.ticket.update({
+					                where: { id: ticketId },
+					                data: updateData,
+					            });
+					        } catch (error) {
+					            if (error.code === 'P2034' && attempt < maxRetries) {
+					                console.warn(`Retrying ticket update (attempt ${attempt}) due to write conflict.`);
+					                await new Promise(resolve => setTimeout(resolve, delay));
+					            } else {
+					                throw error;
+					            }
+					        }
+					    }
+					}
+
+					// Usage in your existing code
+					await updateTicketWithRetry(client.prisma, ticket.id, { lastMessageAt: new Date() });
 
 					// if the ticket was set as stale, unset it
 					if (client.tickets.$stale.has(ticket.id)) {

@@ -50,6 +50,8 @@ module.exports = class TicketArchiver {
 				if (role) roles.add(role);
 			}
 
+			const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 			for (const role of roles) {
 				if (!role.id || !ticketId) continue;
 				const data = {
@@ -73,6 +75,7 @@ module.exports = class TicketArchiver {
 						},
 					}),
 				);
+				await delay(100);
 			}
 
 			for (const member of members) {
@@ -101,6 +104,7 @@ module.exports = class TicketArchiver {
 						},
 					}),
 				);
+				await delay(100);
 			}
 
 			for (const channel of channels) {
@@ -122,6 +126,7 @@ module.exports = class TicketArchiver {
 						},
 					}),
 				);
+				await delay(100);
 			}
 
 			const data = {
