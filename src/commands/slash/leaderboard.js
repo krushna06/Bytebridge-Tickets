@@ -46,7 +46,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
 	async run(interaction, options = {}) {
 		// Only defer if it's a new slash command interaction
-		if (!options.type) {
+		if (!options.type && !options.isUpdate) {
 			await interaction.deferReply();
 		}
 
@@ -76,6 +76,31 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
 		let title, description, data;
 
+		// Get all staff member IDs in the guild
+		const staffRoleIds = await (async () => {
+			const { categories } = await this.client.prisma.guild.findUnique({
+				select: { categories: { select: { staffRoles: true } } },
+				where: { id: interaction.guild.id },
+			});
+			return [
+				...new Set(
+					categories.reduce((acc, c) => {
+						acc.push(...c.staffRoles);
+						return acc;
+					}, []),
+				),
+			];
+		})();
+
+		const supers = this.client.supers || [];
+
+		const staffMembers = interaction.guild.members.cache.filter(member => {
+			if (supers.includes(member.id)) return true;
+			if (member.permissions.has('ManageGuild')) return true;
+			return member.roles.cache.some(role => staffRoleIds.includes(role.id));
+		});
+		const staffIds = new Set(staffMembers.map(m => m.id));
+
 		switch (type) {
 		case 'rating': {
 			const ratings = await this.client.prisma.ticket.findMany({
@@ -93,6 +118,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 			const staffRatings = {};
 			ratings.forEach(ticket => {
 				if (!ticket.closedBy) return;
+				if (!staffIds.has(ticket.closedBy.id)) return; // Only count if closedBy is staff
 				if (!staffRatings[ticket.closedBy.id]) {
 					staffRatings[ticket.closedBy.id] = {
 						count: 0,
@@ -244,9 +270,9 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 			value: entries.join('\n') || 'No data available',
 		});
 
-		await interaction.editReply({ embeds: [embed] });
+		// Use update if this is a menu interaction, otherwise editReply
+		const replyMethod = options.isUpdate ? interaction.update.bind(interaction) : interaction.editReply.bind(interaction);
 
-		// After preparing data in switch cases, add this:
 		const pageSize = 5;
 		let currentPage = 0;
 		const totalPages = Math.ceil(data.length / pageSize);
@@ -339,8 +365,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 			return [new ActionRowBuilder().addComponents(selectMenu), buttons];
 		};
 
-		// Replace the response section with this:
-		const response = await interaction.editReply({
+		const response = await replyMethod({
 			components: generateComponents(currentPage),
 			embeds: [await generateEmbed(currentPage)],
 		});
@@ -369,7 +394,7 @@ module.exports = class LeaderboardSlashCommand extends SlashCommand {
 
 		collector.on('end', () => {
 			// Remove all components when collector expires
-			interaction.editReply({
+			response.edit({
 				components: [],
 				embeds: [generateEmbed(currentPage)],
 			}).catch(() => {});
