@@ -81,11 +81,19 @@ module.exports = class ProfilesSlashCommand extends SlashCommand {
 	}
 
 	formatActiveHours(activeHours) {
-		const [start, end] = JSON.parse(activeHours)[0].split('-');
-		const now = new Date();
-		const startTime = Math.floor(new Date(now.setHours(...start.split(':'))).getTime() / 1000);
-		const endTime = Math.floor(new Date(now.setHours(...end.split(':'))).getTime() / 1000);
-		return `<t:${startTime}:t> - <t:${endTime}:t>`;
+		try {
+			const parsed = JSON.parse(activeHours);
+			if (!Array.isArray(parsed) || !parsed[0] || typeof parsed[0] !== 'string' || !parsed[0].includes('-')) {
+				return 'Not set';
+			}
+			const [start, end] = parsed[0].split('-');
+			const now = new Date();
+			const startTime = Math.floor(new Date(now.setHours(...start.split(':'))).getTime() / 1000);
+			const endTime = Math.floor(new Date(now.setHours(...end.split(':'))).getTime() / 1000);
+			return `<t:${startTime}:t> - <t:${endTime}:t>`;
+		} catch (e) {
+			return 'Not set';
+		}
 	}
 
 	async getAverageRating(userId) {
