@@ -46,6 +46,10 @@ module.exports = class CloseSlashCommand extends SlashCommand {
 							name: 'Appeal Denied',
 							value: 'appeal_denied',
 						},
+						{
+							name: 'No response',
+							value: 'no_response',
+						},
 					],
 					name: 'reason',
 					required: false,

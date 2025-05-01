@@ -40,6 +40,7 @@ const REASON_MAP = {
 	appeal_denied: 'Appeal denied. Punishment remains due to evidence/past history.',
 	report_reviewed_steps: 'Report reviewed and necessary steps taken. Thank you for your help.',
 	bug_report_reviewed: 'Bug noted. Team will fix soon. Thanks for helping improve Fusion Network.',
+	no_response: 'Closed due to no response from the ticket creator.',
 };
 
 /**
