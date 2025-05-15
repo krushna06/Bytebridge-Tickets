@@ -234,3 +234,7 @@ CREATE INDEX "notes_targetId_idx" ON "notes"("targetId");
 
 -- CreateIndex
 CREATE INDEX "notes_guildId_idx" ON "notes"("guildId");
+
+-- Migration to add locked and locked_at columns to tickets table
+ALTER TABLE tickets ADD COLUMN locked BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE tickets ADD COLUMN locked_at DATETIME;
