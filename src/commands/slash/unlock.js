@@ -94,6 +94,15 @@ module.exports = class UnlockSlashCommand extends SlashCommand {
 						.setDescription(getMessage('commands.slash.unlock.success') || 'Ticket unlocked. The creator can send messages again.'),
 				],
 			});
+
+			await ticketChannel.send({
+				embeds: [
+					new ExtendedEmbedBuilder()
+						.setColor(ticket.guild.successColour)
+						.setTitle('🔓 Unlocked')
+						.setDescription('You may reply back if needed.')
+				]
+			});
 		} catch (err) {
 			console.error('Permission overwrite error:', err);
 			await interaction.editReply({

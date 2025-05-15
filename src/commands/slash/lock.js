@@ -46,7 +46,8 @@ module.exports = class LockSlashCommand extends SlashCommand {
 
 		const getMessage = client.i18n.getLocale(ticket.guild.locale);
 		const creatorId = ticket.createdById;
-		if (!creatorId) {
+		if (!creatorId || typeof creatorId !== 'string' || !/^\d{15,20}$/.test(creatorId)) {
+			console.error('Invalid creatorId:', creatorId, typeof creatorId);
 			return await interaction.editReply({
 				embeds: [
 					new ExtendedEmbedBuilder({
@@ -54,7 +55,26 @@ module.exports = class LockSlashCommand extends SlashCommand {
 						text: ticket.guild.footer,
 					})
 						.setColor(ticket.guild.errorColour)
-						.setTitle('Could not determine ticket creator.')
+						.setTitle('Could not determine a valid ticket creator.')
+				],
+			});
+		}
+
+		let member;
+		try {
+			member = await interaction.guild.members.fetch(creatorId);
+		} catch (e) {
+			member = null;
+		}
+		if (!member) {
+			return await interaction.editReply({
+				embeds: [
+					new ExtendedEmbedBuilder({
+						iconURL: interaction.guild.iconURL(),
+						text: ticket.guild.footer,
+					})
+						.setColor(ticket.guild.errorColour)
+						.setTitle('Ticket creator is no longer in the server.')
 				],
 			});
 		}
@@ -73,6 +93,15 @@ module.exports = class LockSlashCommand extends SlashCommand {
 						.setColor(ticket.guild.primaryColour)
 						.setDescription(getMessage('commands.slash.lock.success') || 'Ticket locked. The creator can no longer send messages.'),
 				],
+			});
+
+			await ticketChannel.send({
+				embeds: [
+					new ExtendedEmbedBuilder()
+						.setColor(ticket.guild.errorColour)
+						.setTitle('**🔒 Locked**')
+						.setDescription('No further replies are possible.')
+				]
 			});
 		} catch (err) {
 			await interaction.editReply({
