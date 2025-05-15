@@ -219,7 +219,7 @@ model Ticket {
     topic               String?           @db.Text
     questionAnswers     QuestionAnswer[]
     locked              Boolean           @default(false)
-    lockedAt            DateTime?
+    locked_at           DateTime?
 
     @@unique([guildId, number])
     @@map("tickets")
