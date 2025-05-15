@@ -12,7 +12,7 @@ presence:
       type: 3
     - name: "{avgResponseTime} response time"
       type: 3
-  interval: 20
+  interval: 15
   status: online
 stats: true
 templates:
