@@ -218,6 +218,8 @@ model Ticket {
     referencesTicketId  String?           @db.VarChar(19)
     topic               String?           @db.Text
     questionAnswers     QuestionAnswer[]
+    locked              Boolean           @default(false)
+    lockedAt            DateTime?
 
     @@unique([guildId, number])
     @@map("tickets")
