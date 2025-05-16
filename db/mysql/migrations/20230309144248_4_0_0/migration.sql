@@ -304,3 +304,6 @@ CREATE TABLE IF NOT EXISTS notes (
 -- Migration to add locked and locked_at columns to tickets table
 ALTER TABLE tickets ADD COLUMN locked BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE tickets ADD COLUMN locked_at DATETIME;
+
+-- Migration to add scheduled_deletion_at column to tickets table
+ALTER TABLE tickets ADD COLUMN scheduled_deletion_at DATETIME;
