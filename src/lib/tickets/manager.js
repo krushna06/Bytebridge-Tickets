@@ -64,6 +64,34 @@ module.exports = class TicketManager {
 		this.$count = { categories: {} };
 		this.$numbers = {};
 		this.$stale = new Collection();
+
+		setInterval(async () => {
+			try {
+				const now = new Date();
+				console.log(`[TICKET CLEANUP] Running cleanup at ${now.toISOString()}`);
+				const expired = await this.client.prisma.ticket.findMany({
+					where: {
+						scheduled_deletion_at: { lte: now },
+						open: true,
+					},
+				});
+				console.log(`[TICKET CLEANUP] Found ${expired.length} tickets scheduled for deletion.`);
+				for (const ticket of expired) {
+					console.log(`[TICKET CLEANUP] Candidate ticket: id=${ticket.id} scheduled_deletion_at=${ticket.scheduled_deletion_at} open=${ticket.open}`);
+					try {
+						await this.finallyClose(ticket.id, {
+							reason: 'Closed due to ticket being locked away.'
+						});
+						console.log(`[TICKET CLEANUP] Closed ticket ${ticket.id} (scheduled_deletion_at passed)`);
+					} catch (err) {
+						console.error(`[TICKET CLEANUP] Failed to delete ticket ${ticket.id}:`, err);
+					}
+				}
+			} catch (err) {
+				console.error('[TICKET CLEANUP] Error in scheduled cleanup:', err);
+			}
+		}, 60 * 60 * 1000);
+
 	}
 
 	/**

@@ -219,6 +219,7 @@ model Ticket {
     questionAnswers     QuestionAnswer[]
     locked              Boolean           @default(false)
     locked_at           DateTime?
+    scheduled_deletion_at DateTime?
 
     @@unique([guildId, number])
     @@map("tickets")

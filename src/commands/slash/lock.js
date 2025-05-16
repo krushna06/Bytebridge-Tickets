@@ -82,6 +82,17 @@ module.exports = class LockSlashCommand extends SlashCommand {
 		/** @type {import('discord.js').TextChannel} */
 		const ticketChannel = await interaction.guild.channels.fetch(ticket.id);
 		try {
+			const now = new Date();
+			const deletion = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+			await client.prisma.ticket.update({
+				where: { id: ticket.id },
+				data: {
+					locked: true,
+					locked_at: now,
+					scheduled_deletion_at: deletion,
+				},
+			});
+
 			await ticketChannel.permissionOverwrites.edit(
 				creatorId,
 				{ SendMessages: false },
