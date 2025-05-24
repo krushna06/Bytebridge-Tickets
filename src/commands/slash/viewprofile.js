@@ -1,148 +1,1 @@
-const { SlashCommand } = require('@eartharoid/dbf');
-const { ApplicationCommandOptionType } = require('discord.js');
-const ExtendedEmbedBuilder = require('../../lib/embed');
-const { isStaff } = require('../../lib/users');
-
-module.exports = class ViewProfileSlashCommand extends SlashCommand {
-	constructor(client, options) {
-		const name = 'viewprofile';
-		super(client, {
-			...options,
-			description: 'View a staff member\'s profile',
-			dmPermission: false,
-			name,
-			options: [
-				{
-					description: 'The staff member whose profile you want to view',
-					name: 'member',
-					required: true,
-					type: ApplicationCommandOptionType.User,
-				},
-			],
-		});
-	}
-
-	async run(interaction) {
-		await interaction.deferReply();
-
-		const settings = await this.client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
-
-		const targetMember = interaction.options.getMember('member');
-
-		if (!(await isStaff(interaction.guild, targetMember.id))) {
-			return await interaction.editReply({
-				embeds: [
-					new ExtendedEmbedBuilder({
-						iconURL: interaction.guild.iconURL(),
-						text: settings.footer,
-					})
-						.setColor(settings.errorColour)
-						.setTitle('❌ Error')
-						.setDescription('This user is not a staff member.'),
-				],
-			});
-		}
-
-		const userProfile = await this.client.prisma.user.findUnique({ where: { id: targetMember.id } });
-
-		const embed = new ExtendedEmbedBuilder({
-			iconURL: interaction.guild.iconURL(),
-			text: settings.footer,
-		})
-			.setColor(settings.primaryColour)
-			.setTitle(`${targetMember.displayName}'s Profile`)
-			.setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }));
-
-		if (userProfile?.bio) {
-			embed.addFields({
-				name: 'Staff Bio',
-				value: userProfile.bio,
-			});
-		}
-
-		if (userProfile?.activeHours && userProfile.activeHours !== '[]') {
-			const hours = JSON.parse(userProfile.activeHours);
-			embed.addFields({
-				name: 'Active Hours',
-				value: hours.join('\n') || 'Not set',
-			});
-		}
-
-		const sevenDaysAgo = new Date();
-		sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-		const [ticketsClaimed, ticketsClosed, averageRating, averageResponse] = await Promise.all([
-			this.client.prisma.ticket.count({
-				where: {
-					claimedById: targetMember.id,
-					createdAt: { gte: sevenDaysAgo },
-				},
-			}),
-			this.client.prisma.ticket.count({
-				where: {
-					closedAt: { gte: sevenDaysAgo },
-					closedById: targetMember.id,
-				},
-			}),
-			this.client.prisma.ticket.findMany({
-				include: { feedback: true },
-				where: {
-					closedAt: { gte: sevenDaysAgo },
-					closedById: targetMember.id,
-					feedback: { isNot: null },
-				},
-			}).then(tickets => {
-				if (tickets.length === 0) return null;
-				const total = tickets.reduce((sum, ticket) => sum + ticket.feedback.rating, 0);
-				return (total / tickets.length).toFixed(1);
-			}),
-			this.client.prisma.ticket.findMany({
-				select: {
-					createdAt: true,
-					firstResponseAt: true,
-				},
-				where: {
-					closedAt: { gte: sevenDaysAgo },
-					closedById: targetMember.id,
-				},
-			}).then(tickets => {
-				let totalResponseTime = 0;
-				let ticketsWithResponse = 0;
-				tickets.forEach(ticket => {
-					if (ticket.firstResponseAt && ticket.createdAt) {
-						const responseTime = new Date(ticket.firstResponseAt).getTime() - new Date(ticket.createdAt).getTime();
-						totalResponseTime += responseTime;
-						ticketsWithResponse++;
-					}
-				});
-				if (ticketsWithResponse === 0) return null;
-				return ((totalResponseTime / ticketsWithResponse) / (1000 * 60)).toFixed(2); // minutes, 2 decimals
-			}),
-		]);
-
-		embed.addFields(
-			{
-				inline: true,
-				name: 'Tickets Claimed (7d)',
-				value: ticketsClaimed.toString(),
-			},
-			{
-				inline: true,
-				name: 'Tickets Closed (7d)',
-				value: ticketsClosed.toString(),
-			},
-			{
-				inline: true,
-				name: 'Average Rating (7d)',
-				value: averageRating ? `${averageRating} ⭐` : 'No ratings',
-			},
-			{
-				inline: true,
-				name: 'Avg Response Time (7d)',
-				value: averageResponse ? `${averageResponse} min` : 'No data',
-			},
-		);
-
-		await interaction.editReply({ embeds: [embed] });
-	}
-};
+const { SlashCommand } = require('@eartharoid/dbf');const { ApplicationCommandOptionType } = require('discord.js');const ExtendedEmbedBuilder = require('../../lib/embed');const { isStaff } = require('../../lib/users');module.exports = class ViewProfileSlashCommand extends SlashCommand {	constructor(client, options) {		const name = 'viewprofile';		super(client, {			...options,			description: 'View a staff member\'s profile',			dmPermission: false,			name,			options: [				{					description: 'The staff member whose profile you want to view',					name: 'member',					required: true,					type: ApplicationCommandOptionType.User,				},			],		});	}	async run(interaction) {		await interaction.deferReply();		const settings = await this.client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });		const targetMember = interaction.options.getMember('member');		if (!(await isStaff(interaction.guild, targetMember.id))) {			return await interaction.editReply({				embeds: [					new ExtendedEmbedBuilder({						iconURL: interaction.guild.iconURL(),						text: settings.footer,					})						.setColor(settings.errorColour)						.setTitle('❌ Error')						.setDescription('This user is not a staff member.'),				],			});		}		const userProfile = await this.client.prisma.user.findUnique({ where: { id: targetMember.id } });		const embed = new ExtendedEmbedBuilder({			iconURL: interaction.guild.iconURL(),			text: settings.footer,		})			.setColor(settings.primaryColour)			.setTitle(`${targetMember.displayName}'s Profile`)			.setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }));		if (userProfile?.bio) {			embed.addFields({				name: 'Staff Bio',				value: userProfile.bio,			});		}		if (userProfile?.activeHours && userProfile.activeHours !== '[]') {			const hours = JSON.parse(userProfile.activeHours);			embed.addFields({				name: 'Active Hours',				value: hours.join('\n') || 'Not set',			});		}		const sevenDaysAgo = new Date();		sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);		const [ticketsClaimed, ticketsClosed, averageRating, averageResponse] = await Promise.all([			this.client.prisma.ticket.count({				where: {					claimedById: targetMember.id,					createdAt: { gte: sevenDaysAgo },				},			}),			this.client.prisma.ticket.count({				where: {					closedAt: { gte: sevenDaysAgo },					closedById: targetMember.id,				},			}),			this.client.prisma.ticket.findMany({				include: { feedback: true },				where: {					closedAt: { gte: sevenDaysAgo },					closedById: targetMember.id,					feedback: { isNot: null },				},			}).then(tickets => {				if (tickets.length === 0) return null;				const total = tickets.reduce((sum, ticket) => sum + ticket.feedback.rating, 0);				return (total / tickets.length).toFixed(1);			}),			this.client.prisma.ticket.findMany({				select: {					createdAt: true,					firstResponseAt: true,				},				where: {					closedAt: { gte: sevenDaysAgo },					closedById: targetMember.id,				},			}).then(tickets => {				let totalResponseTime = 0;				let ticketsWithResponse = 0;				tickets.forEach(ticket => {					if (ticket.firstResponseAt && ticket.createdAt) {						const responseTime = new Date(ticket.firstResponseAt).getTime() - new Date(ticket.createdAt).getTime();						totalResponseTime += responseTime;						ticketsWithResponse++;					}				});				if (ticketsWithResponse === 0) return null;				return ((totalResponseTime / ticketsWithResponse) / (1000 * 60)).toFixed(2);			}),		]);		embed.addFields(			{				inline: true,				name: 'Tickets Claimed (7d)',				value: ticketsClaimed.toString(),			},			{				inline: true,				name: 'Tickets Closed (7d)',				value: ticketsClosed.toString(),			},			{				inline: true,				name: 'Average Rating (7d)',				value: averageRating ? `${averageRating} ⭐` : 'No ratings',			},			{				inline: true,				name: 'Avg Response Time (7d)',				value: averageResponse ? `${averageResponse} min` : 'No data',			},		);		await interaction.editReply({ embeds: [embed] });	}};

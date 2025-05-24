@@ -1,6 +1,5 @@
 const { SlashCommand } = require('@eartharoid/dbf');
 const ExtendedEmbedBuilder = require('../../lib/embed');
-
 module.exports = class LockSlashCommand extends SlashCommand {
 	constructor(client, options) {
 		const name = 'lock';
@@ -14,20 +13,13 @@ module.exports = class LockSlashCommand extends SlashCommand {
 			nameLocalizations: client.i18n?.getAllMessages?.(`commands.slash.${name}.name`) || undefined,
 		});
 	}
-
-	/**
-	 * @param {import('discord.js').ChatInputCommandInteraction} interaction
-	 */
 	async run(interaction) {
-		/** @type {import('client')} */
 		const client = this.client;
 		await interaction.deferReply({ ephemeral: true });
-
 		const ticket = await client.prisma.ticket.findUnique({
 			include: { guild: true },
 			where: { id: interaction.channel.id },
 		});
-
 		if (!ticket) {
 			const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
 			const getMessage = client.i18n.getLocale(settings.locale);
@@ -43,7 +35,6 @@ module.exports = class LockSlashCommand extends SlashCommand {
 				],
 			});
 		}
-
 		const getMessage = client.i18n.getLocale(ticket.guild.locale);
 		const creatorId = ticket.createdById;
 		if (!creatorId || typeof creatorId !== 'string' || !/^\d{15,20}$/.test(creatorId)) {
@@ -59,7 +50,6 @@ module.exports = class LockSlashCommand extends SlashCommand {
 				],
 			});
 		}
-
 		let member;
 		try {
 			member = await interaction.guild.members.fetch(creatorId);
@@ -78,8 +68,6 @@ module.exports = class LockSlashCommand extends SlashCommand {
 				],
 			});
 		}
-
-		/** @type {import('discord.js').TextChannel} */
 		const ticketChannel = await interaction.guild.channels.fetch(ticket.id);
 		try {
 			const now = new Date();
@@ -92,7 +80,6 @@ module.exports = class LockSlashCommand extends SlashCommand {
 					scheduled_deletion_at: deletion,
 				},
 			});
-
 			await ticketChannel.permissionOverwrites.edit(
 				creatorId,
 				{ SendMessages: false },
@@ -105,7 +92,6 @@ module.exports = class LockSlashCommand extends SlashCommand {
 						.setDescription(getMessage('commands.slash.lock.success') || 'Ticket locked. The creator can no longer send messages.'),
 				],
 			});
-
 			await ticketChannel.send({
 				embeds: [
 					new ExtendedEmbedBuilder()

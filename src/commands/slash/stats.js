@@ -2,11 +2,7 @@ const { SlashCommand } = require('@eartharoid/dbf');
 const { ApplicationCommandOptionType } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
-
 module.exports = class StatsSlashCommand extends SlashCommand {
-	/**
-	 * @returns {boolean}
-	 */
 	_isSuperUser() {
 		const superUsers = process.env.SUPER_USERS?.split(',').map(id => id.trim()) || [];
 		return process.env.USER && superUsers.includes(process.env.USER);
@@ -46,14 +42,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 			],
 		});
 	}
-
-	/**
-	 * @param {import("discord.js").ChatInputCommandInteraction} interaction
-	 */
 	async run(interaction) {
-		/** @type {import("client")} */
 		const client = this.client;
-
 		if (!this._isSuperUser()) {
 			client.log.warn(`User ${process.env.USER || 'unknown'} attempted to use stats command but is not authorized.`);
 			return interaction.reply({ 
@@ -61,11 +51,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				ephemeral: true 
 			});
 		}
-
 		await interaction.deferReply();
-
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
-
 		if (!(await isStaff(interaction.guild, interaction.member.id))) {
 			return await interaction.editReply({
 				embeds: [
@@ -79,11 +66,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				],
 			});
 		}
-
 		const existingStats = await client.prisma.statsMessage.findFirst({ where: { guildId: interaction.guild.id } });
-
 		const statsEmbed = await this.generateStatsEmbed(interaction, settings);
-
 		let message;
 		if (existingStats) {
 			try {
@@ -100,7 +84,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 		} else {
 			message = await interaction.editReply({ embeds: [statsEmbed] });
 		}
-
 		await client.prisma.statsMessage.upsert({
 			create: {
 				channelId: message.channel.id,
@@ -113,7 +96,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 			},
 			where: { guildId: interaction.guild.id },
 		});
-
 		if (!client.statsUpdateIntervals?.has(interaction.guild.id)) {
 			const interval = setInterval(async () => {
 				try {
@@ -124,21 +106,15 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					client.statsUpdateIntervals.delete(interaction.guild.id);
 				}
 			}, 120000);
-
 			if (!client.statsUpdateIntervals) client.statsUpdateIntervals = new Map();
 			client.statsUpdateIntervals.set(interaction.guild.id, interval);
 		}
 	}
-
 	async generateStatsEmbed(interaction, settings) {
-		/** @type {import("client")} */
 		const client = this.client;
-
 		const timeRange = interaction.options.getString('timerange') || '7d';
 		let startDate;
 		const endDate = new Date();
-
-		// Calculate start date based on time range
 		switch(timeRange) {
 		case '24h':
 			startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
@@ -155,17 +131,13 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 		default:
 			startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 		}
-
-		// Map time range to display text
 		const timeRangeDisplay = {
 			'7d': 'Last 7 Days',
 			'24h': 'Last 24 Hours',
 			'30d': 'Last 30 Days',
 			'90d': 'Last 90 Days',
 		}[timeRange];
-
 		try {
-			// Get tickets with related data
 			const tickets = await client.prisma.ticket.findMany({
 				include: {
 					category: true,
@@ -180,10 +152,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					guildId: interaction.guild.id,
 				},
 			});
-
-			// Handle case when no tickets are found
 			if (tickets.length === 0) {
-				return new ExtendedEmbedBuilder({  // Return the embed instead of sending it
+				return new ExtendedEmbedBuilder({ 
 					iconURL: interaction.guild.iconURL(),
 					text: settings.footer,
 				})
@@ -191,8 +161,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					.setTitle('ℹ️ No Data')
 					.setDescription('No tickets found in the selected time period.');
 			}
-
-			// 1. Calculate Most Popular Category
 			const categoryCount = {};
 			tickets.forEach(ticket => {
 				if (ticket.category) {
@@ -200,7 +168,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					categoryCount[categoryName] = (categoryCount[categoryName] || 0) + 1;
 				}
 			});
-
 			let mostPopularCategory = {
 				count: 0,
 				name: 'None',
@@ -213,11 +180,8 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					};
 				}
 			});
-
-			// 2. Calculate Average Response Time (in minutes)
 			let totalResponseTime = 0;
 			let ticketsWithResponse = 0;
-
 			tickets.forEach(ticket => {
 				if (ticket.firstResponseAt && ticket.createdAt) {
 					const responseTime = ticket.firstResponseAt.getTime() - ticket.createdAt.getTime();
@@ -225,37 +189,24 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					ticketsWithResponse++;
 				}
 			});
-
 			const avgResponseTime = ticketsWithResponse > 0
-				? (totalResponseTime / ticketsWithResponse) / (1000 * 60) // Convert to minutes
+				? (totalResponseTime / ticketsWithResponse) / (1000 * 60)
 				: 0;
-
-			// 3. Calculate Average Daily Tickets
 			const daysDifference = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
 			const avgDailyTickets = tickets.length / daysDifference;
-
-			// 4. Calculate Average Feedback Rating
 			let totalRating = 0;
 			let ticketsWithFeedback = 0;
-
 			tickets.forEach(ticket => {
 				if (ticket.feedback && ticket.feedback.rating) {
 					totalRating += ticket.feedback.rating;
 					ticketsWithFeedback++;
 				}
 			});
-
 			const avgFeedbackRating = ticketsWithFeedback > 0
 				? totalRating / ticketsWithFeedback
 				: 0;
-
-			// Generate star display for the rating
 			const starRating = generateStarRating(avgFeedbackRating);
-
-			// 5. Calculate Staff Performance
 			const staffPerformance = {};
-
-			// Collect stats for claimed tickets
 			tickets.forEach(ticket => {
 				if (ticket.claimedById) {
 					if (!staffPerformance[ticket.claimedById]) {
@@ -270,27 +221,21 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 							totalResponseTime: 0,
 						};
 					}
-
 					staffPerformance[ticket.claimedById].ticketsHandled++;
-
 					if (!ticket.open) {
 						staffPerformance[ticket.claimedById].closedTickets++;
 					}
-
 					if (ticket.firstResponseAt && ticket.createdAt) {
 						staffPerformance[ticket.claimedById].totalResponseTime +=
 							ticket.firstResponseAt.getTime() - ticket.createdAt.getTime();
 						staffPerformance[ticket.claimedById].ticketsWithResponse++;
 					}
-
 					if (ticket.feedback && ticket.feedback.rating) {
 						staffPerformance[ticket.claimedById].totalRating += ticket.feedback.rating;
 						staffPerformance[ticket.claimedById].ticketsWithFeedback++;
 					}
 				}
 			});
-
-			// Process staff performance data and sort by tickets handled
 			const staffStats = Object.values(staffPerformance).map(staff => ({
 				...staff,
 				avgRating: staff.ticketsWithFeedback > 0
@@ -300,8 +245,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					? (staff.totalResponseTime / staff.ticketsWithResponse) / (1000 * 60)
 					: 0,
 			})).sort((a, b) => b.ticketsHandled - a.ticketsHandled);
-
-			// Create the main stats embed
 			const statsEmbed = new ExtendedEmbedBuilder({
 				iconURL: interaction.guild.iconURL(),
 				text: settings.footer,
@@ -309,8 +252,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 				.setColor(settings.primaryColour)
 				.setTitle('📊 Ticket Statistics')
 				.setDescription(`Statistics for ${timeRangeDisplay}`);
-
-			// Add basic ticket counts
 			statsEmbed.addFields([
 				{
 					inline: true,
@@ -328,8 +269,6 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					value: `${tickets.filter(t => !t.open).length} tickets`,
 				},
 			]);
-
-			// Add advanced metrics
 			statsEmbed.addFields([
 				{
 					name: '🏆 Most Popular Category',
@@ -349,40 +288,30 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 					value: `${avgDailyTickets.toFixed(2)} tickets per day`,
 				},
 			]);
-
-			// Add feedback rating
 			statsEmbed.addFields({
 				name: '⭐ Average Feedback Rating',
 				value: ticketsWithFeedback > 0
 					? `${starRating} (${avgFeedbackRating.toFixed(2)}/5 from ${ticketsWithFeedback} ratings)`
 					: 'No feedback ratings yet',
 			});
-
-			// Add staff performance if available
 			if (staffStats.length > 0) {
 				const staffField = {
 					name: '👥 Staff Performance',
 					value: staffStats.slice(0, 5).map((staff, index) => {
 						let staffLine = `${index + 1}. ${staff.name}: ${staff.ticketsHandled} tickets (${staff.avgResponseTime.toFixed(2)} min avg)`;
-
 						if (staff.ticketsWithFeedback > 0) {
 							const staffStars = generateStarRating(staff.avgRating);
 							staffLine += ` ${staffStars}`;
 						}
-
 						return staffLine;
 					}).join('\n'),
 				};
-
 				statsEmbed.addFields(staffField);
 			}
-
-			// Return the embed instead of sending it
 			return statsEmbed;
 		} catch (error) {
 			console.error('Error in stats command:', error);
-
-			return new ExtendedEmbedBuilder({  // Return the embed instead of sending it
+			return new ExtendedEmbedBuilder({ 
 				iconURL: interaction.guild.iconURL(),
 				text: settings.footer,
 			})
@@ -392,16 +321,9 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 		}
 	}
 };
-
-/**
- * Generate a star rating display based on a numeric rating
- * @param {number} rating - Rating value (typically between 0-5)
- * @returns {string} Star rating display (e.g., "★★★☆☆")
- */
 function generateStarRating(rating) {
 	const fullStars = Math.floor(rating);
 	const halfStar = rating - fullStars >= 0.5;
 	const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
-
 	return '★'.repeat(fullStars) + (halfStar ? '⭐' : '') + '☆'.repeat(emptyStars);
 }
