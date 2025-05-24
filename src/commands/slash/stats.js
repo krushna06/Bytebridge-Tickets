@@ -4,6 +4,13 @@ const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
 
 module.exports = class StatsSlashCommand extends SlashCommand {
+	/**
+	 * @returns {boolean}
+	 */
+	_isSuperUser() {
+		const superUsers = process.env.SUPER_USERS?.split(',').map(id => id.trim()) || [];
+		return process.env.USER && superUsers.includes(process.env.USER);
+	}
 	constructor(client, options) {
 		const name = 'stats';
 		super(client, {
@@ -47,11 +54,18 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 		/** @type {import("client")} */
 		const client = this.client;
 
+		if (!this._isSuperUser()) {
+			client.log.warn(`User ${process.env.USER || 'unknown'} attempted to use stats command but is not authorized.`);
+			return interaction.reply({ 
+				content: '❌ Access denied. Only SUPER users can use this command.',
+				ephemeral: true 
+			});
+		}
+
 		await interaction.deferReply();
 
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
 
-		// Check if user is staff
 		if (!(await isStaff(interaction.guild, interaction.member.id))) {
 			return await interaction.editReply({
 				embeds: [

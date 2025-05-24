@@ -9,7 +9,20 @@ module.exports = class extends StdinCommand {
 		});
 	}
 
+	/**
+	 * @returns {boolean}
+	 */
+	_isSuperUser() {
+		const superUsers = process.env.SUPER_USERS?.split(',').map(id => id.trim()) || [];
+		return process.env.USER && superUsers.includes(process.env.USER);
+	}
+
 	async run() {
+		if (!this._isSuperUser()) {
+			this.client.log.warn(`User ${process.env.USER || 'unknown'} attempted to use hotreload command but is not authorized.`);
+			return this.client.log.error('Access denied. Only SUPER users can use this command.');
+		}
+
 		this.client.log.warn('Hot-reloading all modules...');
 		this.client.log.info('Clearing require cache for project files...');
 
