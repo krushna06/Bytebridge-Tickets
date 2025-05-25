@@ -8,7 +8,7 @@ module.exports = class extends StdinCommand {
 		});
 	}
 	_isSuperUser() {
-		const superUsers = process.env.SUPER_USERS?.split(',').map(id => id.trim()) || [];
+		const superUsers = process.env.SUPER?.split(',').map(id => id.trim()) || [];
 		return process.env.USER && superUsers.includes(process.env.USER);
 	}
 	async run() {

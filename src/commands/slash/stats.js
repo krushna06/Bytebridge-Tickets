@@ -3,9 +3,9 @@ const { ApplicationCommandOptionType } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { isStaff } = require('../../lib/users');
 module.exports = class StatsSlashCommand extends SlashCommand {
-	_isSuperUser() {
-		const superUsers = process.env.SUPER_USERS?.split(',').map(id => id.trim()) || [];
-		return process.env.USER && superUsers.includes(process.env.USER);
+	_isSuperUser(interaction) {
+		const superUsers = process.env.SUPER?.split(',').map(id => id.trim()) || [];
+		return interaction.user && superUsers.includes(interaction.user.id);
 	}
 	constructor(client, options) {
 		const name = 'stats';
@@ -44,7 +44,7 @@ module.exports = class StatsSlashCommand extends SlashCommand {
 	}
 	async run(interaction) {
 		const client = this.client;
-		if (!this._isSuperUser()) {
+		if (!this._isSuperUser(interaction)) {
 			client.log.warn(`User ${process.env.USER || 'unknown'} attempted to use stats command but is not authorized.`);
 			return interaction.reply({ 
 				content: '❌ Access denied. Only SUPER users can use this command.',
