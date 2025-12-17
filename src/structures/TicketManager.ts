@@ -60,6 +60,7 @@ export class TicketManager {
     if (!ticket) throw new Error('Ticket not found');
     const channel = await this.client.channels.fetch(channelId);
     if (!channel || !channel.isTextBased()) throw new Error('Channel not found or not text');
+    await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Transcript saved.`);
 
     const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
     updateTicketRow(ticket.id, { status: 'closed', closedAt: Date.now(), transcriptPath });
@@ -71,8 +72,6 @@ export class TicketManager {
     } catch (err) {
       console.warn('Failed to update permissions on close', err);
     }
-
-    await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Transcript saved.`);
     setTimeout(async () => {
       try {
         const ch = await this.client.channels.fetch(channelId);
