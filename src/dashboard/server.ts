@@ -105,6 +105,15 @@ app.get('/transcripts/:filename', (req: any, res: any) => {
 });
 
 const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, () => console.log(`Dashboard API listening on ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Dashboard API listening on ${PORT}`));
+server.on('error', (err: any) => console.error('Dashboard server error', err));
+
+process.on('uncaughtException', (err: any) => {
+  console.error('Uncaught exception in dashboard process', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason: any) => {
+  console.error('Unhandled rejection in dashboard process', reason);
+});
 
 export default app;
