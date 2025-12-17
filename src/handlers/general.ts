@@ -1,9 +1,23 @@
 import { ChatInputCommandInteraction } from 'discord.js';
 import { getTag, listTicketsForUser } from '../lib/database';
 import { Ctx, makeEmbed } from './common';
+import commandsList from '../commands';
 
 export const help = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.reply({ embeds: [makeEmbed('Commands: /new /tag /tickets /add /remove /transfer /note /stickynotes /viewnotes /claim /force-close /move /priority /release /leaderboard /setprofile /stats /viewprofile /close /rename /topic /transcript')], ephemeral: true });
+  try {
+    const cmds = (commandsList as any[]).map((c: any) => {
+      try {
+        if (c && c.data && typeof c.data.toJSON === 'function') {
+          return `/${c.data.toJSON().name}`;
+        }
+        return `/${(c && c.data && c.data.name) || 'unknown'}`;
+      } catch (e) { return '/unknown'; }
+    });
+    const list = cmds.map((c: string) => `• ${c}`).join('\n');
+    await interaction.reply({ embeds: [makeEmbed(`Commands:\n${list}`)], ephemeral: true });
+  } catch (e) {
+    await interaction.reply({ embeds: [makeEmbed('No commands found.')], ephemeral: true });
+  }
 };
 
 export const _new = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
