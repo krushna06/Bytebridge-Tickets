@@ -59,6 +59,18 @@ client.once('ready', () => {
 client.on('interactionCreate', async (interaction: any) => {
   try {
     if (interaction.isButton && interaction.isButton()) {
+      const safeReply = async (opts: any) => {
+        try {
+          try { await interaction.update(opts); return; } catch (_) { }
+          if (interaction.deferred || interaction.replied) {
+            try { await interaction.editReply(opts); return; } catch (_) { }
+          }
+          await interaction.reply(opts);
+        } catch (e: any) {
+          if (e && e.code === 10062) return;
+          console.error('Interaction reply error', e);
+        }
+      };
       const custom = String(interaction.customId || '');
       if (!custom) return;
       const parts = custom.split(':');
@@ -68,16 +80,34 @@ client.on('interactionCreate', async (interaction: any) => {
         const panelId = Number(parts[1]);
         const idx = Number(parts[2] ?? 0);
         const panel = getPanelById(panelId);
-        if (!panel) return await interaction.reply({ ephemeral: true, content: 'Panel not found.' });
+    if (!panel) return await safeReply({ ephemeral: true, content: 'Panel not found.' });
   const button = panel.buttons && panel.buttons[idx];
   const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
   const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
         const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
         const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`, categoryId);
         setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
-        return await interaction.reply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
+  return await safeReply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
       }
 
+      if (prefix === 'rating') {
+        const ticketId = Number(parts[1]);
+        const score = Number(parts[2]);
+        try {
+          if (interaction.isButton && interaction.isButton()) {
+            try {
+              await interaction.update({ content: `Thanks for your feedback: ${score}/5`, components: [] });
+            } catch (e) {
+              try { await interaction.reply({ ephemeral: true, content: `Thanks for your feedback: ${score}/5` }); } catch (e) {}
+            }
+          } else {
+            await interaction.reply({ ephemeral: true, content: `Thanks for your feedback: ${score}/5` });
+          }
+        } catch (e) {
+          try { await interaction.reply({ ephemeral: true, content: 'Thanks for your feedback.' }); } catch (e) {}
+        }
+        return;
+      }
       if (prefix === 'ticket_claim' || prefix === 'ticket_close') {
         const ticketId = Number(parts[1]);
         const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
@@ -92,14 +122,14 @@ client.on('interactionCreate', async (interaction: any) => {
         }
 
         const ticket = getTicketById(ticketId);
-        if (!ticket) return await interaction.reply({ ephemeral: true, content: 'Ticket not found.' });
-        if (interaction.channelId !== ticket.channelId) return await interaction.reply({ ephemeral: true, content: 'This button does not belong to this channel.' });
+  if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
+  if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This button does not belong to this channel.' });
 
         if (prefix === 'ticket_claim') {
-          if (!isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
+          if (!isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
           const meta = getTicketMeta(ticket.id);
           if (meta && meta.claimedBy) {
-            return await interaction.reply({ ephemeral: true, content: `Ticket already claimed by <@${meta.claimedBy}>.` });
+            return await safeReply({ ephemeral: true, content: `Ticket already claimed by <@${meta.claimedBy}>.` });
           }
           await ticketManager.claimTicket(ticket.channelId, interaction.user.id);
           setTicketMeta(ticket.id, { claimedBy: interaction.user.id, guildId: ticket.guildId });
@@ -129,14 +159,14 @@ client.on('interactionCreate', async (interaction: any) => {
               await msg.edit({ components: newComponents as any });
             }
           } catch (e) { }
-          return await interaction.reply({ ephemeral: true, content: 'Ticket claimed.' });
+          return await safeReply({ ephemeral: true, content: 'Ticket claimed.' });
         }
 
         if (prefix === 'ticket_close') {
-          if (ticket.userId !== interaction.user.id && !isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+          if (ticket.userId !== interaction.user.id && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
           const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id);
           incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
-          return await interaction.reply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });
+          return await safeReply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });
         }
       }
       return;
