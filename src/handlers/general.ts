@@ -1,5 +1,6 @@
 import { ChatInputCommandInteraction } from 'discord.js';
 import { getTag, listTicketsForUser } from '../lib/database';
+import path from 'path';
 import { Ctx, makeEmbed } from './common';
 import commandsList from '../commands';
 
@@ -39,9 +40,18 @@ export const tag = async function (interaction: ChatInputCommandInteraction, ctx
 
 export const tickets = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
-  const user = interaction.options.getUser('user') || interaction.user;
+  const user = interaction.options.getUser('user', true);
   const rows = listTicketsForUser(interaction.guildId!, user.id);
   if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No tickets found.')] });
-  const list = rows.map((r: any) => `#${r.id} - <#${r.channelId}> - ${r.status}`).join('\n');
+  const host = process.env.TRANSCRIPTS_HOST || process.env.HOSTNAME || 'localhost';
+  const port = process.env.TRANSCRIPTS_PORT || process.env.PORT || process.env.BOT_API_PORT || '3000';
+  const proto = process.env.TRANSCRIPTS_PROTOCOL || process.env.BOT_API_PROTOCOL || 'http';
+  const base = `${proto}://${host}:${port}`;
+
+  const list = rows.map((r: any) => {
+    const filename = r.transcriptPath ? path.basename(r.transcriptPath) : null;
+    const link = filename ? `${base}/transcripts/${encodeURIComponent(filename)}` : `#${r.id}`;
+    return `[Ticket](${link}) - <#${r.channelId}> - ${r.status}`;
+  }).join('\n');
   return interaction.editReply({ embeds: [makeEmbed(`Tickets:\n${list}`)] });
 };

@@ -42,11 +42,16 @@ app.post('/api/guilds/:guildId/tickets/:ticketId/close', requireApiKey, async (r
   if (!ticket) return res.status(404).json({ error: 'not found' });
   updateTicketRow(id, { status: 'closed', closedAt: Date.now() });
 
-  const botUrl = process.env.BOT_API_URL;
+  const botUrlEnv = (process.env.BOT_API_URL || '').trim();
+  const botHost = process.env.BOT_API_HOST || 'localhost';
+  const botPort = process.env.BOT_API_PORT || '3001';
+  const botProtocol = process.env.BOT_API_PROTOCOL || 'http';
   const botKey = process.env.BOT_API_KEY || process.env.DASHBOARD_API_KEY;
-  if (botUrl && botKey) {
+  const botBase = botUrlEnv || `${botProtocol}://${botHost}:${botPort}`;
+
+  if (botBase && botKey) {
     try {
-      const urlObj = new URL('/internal/close-ticket', botUrl);
+      const urlObj = new URL('/internal/close-ticket', botBase);
       const payload = JSON.stringify({ channelId: ticket.channelId, closerId: req.body.closerId || 'dashboard' });
       const lib = urlObj.protocol === 'https:' ? require('https') : require('http');
       const opts = {
@@ -85,6 +90,18 @@ app.get('/api/transcript', requireApiKey, (req: any, res: any) => {
   const abs = path.resolve(filepath);
   if (!fs.existsSync(abs)) return res.status(404).json({ error: 'not found' });
   res.download(abs);
+});
+
+// Public transcripts endpoint (no auth) - serve transcript by ticket id
+// Public transcripts endpoint (no auth) - serve transcript files by filename in the transcripts folder
+app.get('/transcripts/:filename', (req: any, res: any) => {
+  const filename = req.params.filename as string;
+  if (!filename) return res.status(400).send('Missing filename');
+  const TRANSCRIPTS_PATH = process.env.TRANSCRIPTS_PATH || path.resolve(process.cwd(), 'transcripts');
+  const safe = path.basename(filename); // prevent path traversal
+  const abs = path.resolve(TRANSCRIPTS_PATH, safe);
+  if (!fs.existsSync(abs)) return res.status(404).send('Transcript not found');
+  res.sendFile(abs);
 });
 
 const PORT = Number(process.env.PORT || 3000);
