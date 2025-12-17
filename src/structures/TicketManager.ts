@@ -8,15 +8,17 @@ export class TicketManager {
     this.client = client;
   }
 
-  async createTicket(guild: Guild, opener: GuildMember, summary?: string) {
-    const channel = await guild.channels.create({
+  async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null) {
+    const createOptions: any = {
       name: `ticket-${opener.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 90),
       type: ChannelType.GuildText,
       permissionOverwrites: [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: opener.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
       ]
-    });
+    };
+    if (categoryId) createOptions.parent = categoryId;
+    const channel = await guild.channels.create(createOptions);
 
     const ticketId = createTicketRow({
       guildId: guild.id,

@@ -69,9 +69,11 @@ client.on('interactionCreate', async (interaction: any) => {
         const idx = Number(parts[2] ?? 0);
         const panel = getPanelById(panelId);
         if (!panel) return await interaction.reply({ ephemeral: true, content: 'Panel not found.' });
-        const label = (panel.buttons && panel.buttons[idx]) || `Category ${idx + 1}`;
+  const button = panel.buttons && panel.buttons[idx];
+  const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
+  const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
         const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
-        const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`);
+        const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`, categoryId);
         setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
         return await interaction.reply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
       }

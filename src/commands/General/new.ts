@@ -8,7 +8,8 @@ export default {
     .addStringOption((o) =>
       o.setName('title').setDescription('Short title for the ticket').setRequired(false)
     )
-    .addUserOption((o) => o.setName('user').setDescription('Create ticket for this user').setRequired(false)),
+    .addUserOption((o) => o.setName('user').setDescription('Create ticket for this user').setRequired(false))
+    .addChannelOption(o => o.setName('category').setDescription('Category to place the ticket under').setRequired(false)),
   async execute(interaction: any, ctx: any) {
     return handlers.new(interaction, ctx);
   }

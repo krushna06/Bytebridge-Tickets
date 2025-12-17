@@ -241,9 +241,13 @@ export function listTags(guildId: string){
   return (stmt.all(guildId) as { name: string }[]).map(r => r.name);
 }
 
-export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: string[]){
+
+type PanelButton = { label: string; categoryId?: string | null };
+
+export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>){
+  const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null } : { label: b.label, categoryId: b.categoryId ?? null });
   const stmt = db.prepare('INSERT INTO panels (guildId,title,creatorId,buttons,createdAt) VALUES (?,?,?,?,?)');
-  const info = stmt.run(guildId, title || null, creatorId || null, JSON.stringify(buttons), Date.now());
+  const info = stmt.run(guildId, title || null, creatorId || null, JSON.stringify(normalized), Date.now());
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
 }
 
@@ -252,7 +256,11 @@ export function getLatestPanelForGuild(guildId: string){
   const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? ORDER BY createdAt DESC LIMIT 1');
   const row = stmt.get(guildId) as PanelRow | undefined;
   if (!row) return null;
-  return { ...row, buttons: JSON.parse(row.buttons) as string[] };
+  let parsed: any;
+  try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
+  // normalize elements to PanelButton
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+  return { ...row, buttons };
 }
 
 export function getPanelById(id: number){
@@ -260,12 +268,39 @@ export function getPanelById(id: number){
   const stmt = db.prepare('SELECT * FROM panels WHERE id = ?');
   const row = stmt.get(id) as PanelRow | undefined;
   if (!row) return null;
-  return { ...row, buttons: JSON.parse(row.buttons) as string[] };
+  let parsed: any;
+  try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+  return { ...row, buttons };
 }
 
 export function updatePanelMessage(panelId: number, channelId: string, messageId: string){
   const stmt = db.prepare('UPDATE panels SET channelId = @channelId, messageId = @messageId WHERE id = @panelId');
   stmt.run({ channelId, messageId, panelId });
+}
+
+export function getPanelByChannel(channelId: string){
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  const stmt = db.prepare('SELECT * FROM panels WHERE channelId = ? LIMIT 1');
+  const row = stmt.get(channelId) as PanelRow | undefined;
+  if (!row) return null;
+  let parsed: any;
+  try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
+  const buttons: any[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+  return { ...row, buttons };
+}
+
+export function listPanels(guildId: string){
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? ORDER BY createdAt DESC');
+  const rows = stmt.all(guildId) as PanelRow[];
+  return rows.map(r => ({ ...r, buttons: (() => { try { return JSON.parse(r.buttons); } catch { return []; } })() }));
+}
+
+export function deletePanel(panelId: number){
+  const stmt = db.prepare('DELETE FROM panels WHERE id = ?');
+  const info = stmt.run(panelId);
+  return Number((info as any).changes || 0);
 }
 
 export function updateTicketRow(id: number, patch: Partial<TicketRow>) {

@@ -32,7 +32,10 @@ import {
   createPanel,
   getLatestPanelForGuild,
   getPanelById,
-  updatePanelMessage
+  updatePanelMessage,
+  getPanelByChannel,
+  listPanels,
+  deletePanel
 } from '../lib/database';
 
 export type Ctx = { client: Client; ticketManager: any };
@@ -81,9 +84,10 @@ export default {
 
   async new(interaction: ChatInputCommandInteraction, ctx: Ctx) {
     await interaction.deferReply({ ephemeral: true });
-    const reason = interaction.options.getString('reason') || undefined;
+    const reason = interaction.options.getString('title') || interaction.options.getString('reason') || undefined;
+    const category = interaction.options.getChannel('category') as any;
     const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
-    const result = await ctx.ticketManager.createTicket(interaction.guild!, opener, reason);
+    const result = await ctx.ticketManager.createTicket(interaction.guild!, opener, reason, category && category.id ? category.id : undefined);
     await interaction.editReply({ embeds: [makeEmbed(`Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})`)] });
   },
 
@@ -355,15 +359,60 @@ export default {
     try { sub = interaction.options.getSubcommand(); } catch (e) { sub = 'create'; }
     if (sub === 'create') {
       const title = interaction.options.getString('title') || null;
-      const buttons: string[] = [];
+      const buttons: Array<{ label: string; categoryId?: string | null }> = [];
       for (let i = 1; i <= 5; i++) {
         const b = interaction.options.getString(`button${i}` as any);
-        if (b && b.trim()) buttons.push(b.trim());
+        const cat = interaction.options.getChannel(`button${i}_category` as any) as any;
+        if (b && b.trim()) buttons.push({ label: b.trim(), categoryId: cat && cat.id ? cat.id : null });
       }
       if (!buttons.length) return interaction.editReply({ embeds: [makeEmbed('Please provide at least one button label (up to 5).')] });
-      const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons);
+      const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons as any);
+      const postChannel = interaction.options.getChannel('post_channel') as any;
+      if (postChannel && postChannel.isTextBased && postChannel.isTextBased()) {
+        // post immediately
+        const panel = getPanelById(panelId as number);
+        if (panel) {
+          const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
+          const row = new ActionRowBuilder<ButtonBuilder>();
+          panel.buttons.slice(0,5).forEach((b: any, idx: number) => {
+            const label = (b && (b.label || b)) || `Category ${idx + 1}`;
+            const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+            row.addComponents(btn as any);
+          });
+          const sent = await postChannel.send({ embeds: [embed], components: [row as any] });
+          updatePanelMessage(panel.id, postChannel.id, sent.id);
+        }
+        return interaction.editReply({ embeds: [makeEmbed(`Panel created and posted to ${postChannel}.`)] });
+      }
       return interaction.editReply({ embeds: [makeEmbed(`Panel created with id ${panelId}. Run /sendpanel to post it to a channel.`)] });
     }
+    if (sub === 'list') {
+      const panels = listPanels(interaction.guildId!);
+      if (!panels.length) return interaction.editReply({ embeds: [makeEmbed('No panels found for this guild.')] });
+      const out = panels.map((p: any) => `#${p.id} - ${p.title || 'Untitled'} - posted in <#${p.channelId}> message ${p.messageId || 'N/A'}`).join('\n');
+      return interaction.editReply({ embeds: [makeEmbed(`Panels:\n${out}`)] });
+    }
+
+    if (sub === 'delete') {
+      const id = interaction.options.getInteger('id');
+      const channel = interaction.options.getChannel('channel') as any;
+      let panel: any = null;
+      if (typeof id === 'number') panel = getPanelById(id);
+      else if (channel) panel = getPanelByChannel(channel.id);
+      if (!panel) return interaction.editReply({ embeds: [makeEmbed('Panel not found. Provide a valid id or the channel where it was posted.')] });
+      // try delete posted message
+      if (panel.channelId && panel.messageId) {
+        try {
+          const ch = await ctx.client.channels.fetch(panel.channelId as string) as any;
+          if (ch && ch.isTextBased && ch.isTextBased()) {
+            try { const msg = await ch.messages.fetch(panel.messageId as string); if (msg) await msg.delete(); } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      deletePanel(panel.id);
+      return interaction.editReply({ embeds: [makeEmbed(`Panel #${panel.id} deleted.`)] });
+    }
+
     return interaction.editReply({ embeds: [makeEmbed('Unknown panel subcommand.')] });
   },
 
@@ -378,7 +427,8 @@ export default {
     if (!panel) return interaction.editReply({ embeds: [makeEmbed('No saved panel found for this guild. Create one with /panel create.')] });
     const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
     const row = new ActionRowBuilder<ButtonBuilder>();
-    panel.buttons.slice(0,5).forEach((label: string, idx: number) => {
+    panel.buttons.slice(0,5).forEach((b: any, idx: number) => {
+      const label = (b && (b.label || b)) || `Category ${idx + 1}`;
       const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
       row.addComponents(btn as any);
     });

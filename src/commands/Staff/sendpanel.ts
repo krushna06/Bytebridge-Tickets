@@ -4,9 +4,11 @@ import handlers from '../handlers';
 export default {
   data: new SlashCommandBuilder()
     .setName('sendpanel')
-    .setDescription('Send the latest saved ticket panel to a channel')
-    .addChannelOption(o => o.setName('channel').setDescription('Channel to send panel to').setRequired(true)),
+    .setDescription('Send a saved panel to a channel')
+    .addChannelOption(o => o.setName('channel').setDescription('Channel to send the panel to').setRequired(true))
+    .addIntegerOption(o => o.setName('panel_id').setDescription('Panel id to send (if omitted, latest panel will be used)').setRequired(false)),
   async execute(interaction: any, ctx: any) {
     return handlers.sendpanel(interaction, ctx);
   }
 };
+
