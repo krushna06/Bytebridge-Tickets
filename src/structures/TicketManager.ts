@@ -1,4 +1,4 @@
-import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChannel } from 'discord.js';
+import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { createTicketRow, updateTicketRow, getTicketByChannel } from '../lib/database';
 import { saveChannelTranscript } from '../lib/transcript';
 
@@ -26,8 +26,30 @@ export class TicketManager {
       createdAt: Date.now()
     });
 
-    const welcome = `Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : '');
-    (channel as TextChannel).send({ content: welcome });
+    const embed = new EmbedBuilder()
+      .setTitle('New ticket')
+      .setDescription(`Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : ''))
+      .setTimestamp();
+
+    const claimButton = new ButtonBuilder()
+      .setCustomId(`ticket_claim:${ticketId}`)
+      .setLabel('Claim')
+      .setStyle(ButtonStyle.Primary);
+
+    const closeButton = new ButtonBuilder()
+      .setCustomId(`ticket_close:${ticketId}`)
+      .setLabel('Close')
+      .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimButton, closeButton);
+
+    try {
+      await (channel as TextChannel).send({ embeds: [embed], components: [row as any] });
+    } catch (err) {
+      const welcome = `Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : '');
+      await (channel as TextChannel).send({ content: welcome });
+    }
+
     return { ticketId, channel };
   }
 

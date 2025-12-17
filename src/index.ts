@@ -1,8 +1,9 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits, Partials, InteractionType, ChannelType, PermissionFlagsBits, GuildMember } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, InteractionType, ChannelType, PermissionFlagsBits, GuildMember, EmbedBuilder, ButtonStyle, ActionRowBuilder, ButtonBuilder } from 'discord.js';
 import TicketManager from './structures/TicketManager';
 import {
   getTicketByChannel,
+  getTicketById,
   getGuildSettings,
   getTag,
   createTag,
@@ -53,6 +54,74 @@ client.once('ready', () => {
 
 client.on('interactionCreate', async (interaction: any) => {
   try {
+    if (interaction.isButton && interaction.isButton()) {
+      const custom = interaction.customId as string;
+      if (custom && typeof custom === 'string' && (custom.startsWith('ticket_claim:') || custom.startsWith('ticket_close:'))) {
+        const parts = custom.split(':');
+        const action = parts[0] + '_' + parts[1];
+        const ticketId = Number(parts[1]);
+        const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+        const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+
+        function isStaff(member: GuildMember | any) {
+          try {
+            if (!member) return false;
+            if (settings && settings.staffRoleId) return member.roles?.cache?.has(settings.staffRoleId);
+            return member.permissions?.has(PermissionFlagsBits.ManageChannels) || member.permissions?.has(PermissionFlagsBits.ManageGuild);
+          } catch (e) { return false; }
+        }
+
+        const ticket = getTicketById(ticketId);
+        if (!ticket) return await interaction.reply({ ephemeral: true, content: 'Ticket not found.' });
+        if (interaction.channelId !== ticket.channelId) return await interaction.reply({ ephemeral: true, content: 'This button does not belong to this channel.' });
+
+        if (custom.startsWith('ticket_claim:')) {
+          if (!isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
+          const meta = getTicketMeta(ticket.id);
+          if (meta && meta.claimedBy) {
+            return await interaction.reply({ ephemeral: true, content: `Ticket already claimed by <@${meta.claimedBy}>.` });
+          }
+          await ticketManager.claimTicket(ticket.channelId, interaction.user.id);
+          setTicketMeta(ticket.id, { claimedBy: interaction.user.id, guildId: ticket.guildId });
+          incStaffStat(ticket.guildId, interaction.user.id, 'claimedCount');
+          try {
+            const msg = interaction.message;
+            if (msg && msg.edit) {
+              const newComponents = msg.components.map((row: any) => {
+                const action = new ActionRowBuilder<ButtonBuilder>();
+                for (const c of row.components) {
+                  try {
+                    const customId = c.customId ?? c.custom_id;
+                    const label = c.label ?? '';
+                    const style = c.style ?? ButtonStyle.Secondary;
+                    const disabled = (typeof customId === 'string' && customId.startsWith('ticket_claim:')) ? true : (c.disabled ?? false);
+                    const btn = new ButtonBuilder()
+                      .setCustomId(customId)
+                      .setLabel(label)
+                      .setStyle(style as any)
+                      .setDisabled(disabled as any);
+                    action.addComponents(btn as any);
+                  } catch (e) {
+                  }
+                }
+                return action;
+              });
+              await msg.edit({ components: newComponents as any });
+            }
+          } catch (e) { }
+          return await interaction.reply({ ephemeral: true, content: 'Ticket claimed.' });
+        }
+
+        if (custom.startsWith('ticket_close:')) {
+          if (ticket.userId !== interaction.user.id && !isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+          const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id);
+          incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
+          return await interaction.reply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });
+        }
+      }
+      return;
+    }
+
     if (interaction.type !== InteractionType.ApplicationCommand) return;
     const name = interaction.commandName;
     const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;

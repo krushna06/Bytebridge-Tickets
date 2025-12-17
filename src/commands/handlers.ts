@@ -201,6 +201,8 @@ export default {
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to claim tickets.')] });
   const ticket = getTicketByChannel(interaction.channel?.id || '') as TicketRecord | null;
   if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.')] });
+    const meta = getTicketMeta(ticket.id as number);
+    if (meta && meta.claimedBy) return interaction.editReply({ embeds: [makeEmbed(`Ticket already claimed by <@${meta.claimedBy}>.`)] });
     await ctx.ticketManager.claimTicket(interaction.channel!.id, interaction.user.id);
     setTicketMeta(ticket.id, { claimedBy: interaction.user.id, guildId: ticket.guildId });
     incStaffStat(ticket.guildId, interaction.user.id, 'claimedCount');
