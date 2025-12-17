@@ -219,7 +219,8 @@ client.on('interactionCreate', async (interaction: any) => {
       if (!panel) return interaction.editReply('No saved panel found for this guild. Create one with /panel create.');
       const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
       const row = new ActionRowBuilder<ButtonBuilder>();
-      panel.buttons.slice(0,5).forEach((label: string, idx: number) => {
+      panel.buttons.slice(0,5).forEach((b: any, idx: number) => {
+        const label = (b && (b.label || b)) || `Category ${idx + 1}`;
         const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
         row.addComponents(btn as any);
       });
