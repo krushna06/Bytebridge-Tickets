@@ -28,7 +28,7 @@ export default {
     .addSubcommand(sub =>
       sub.setName('delete')
         .setDescription('Delete a saved panel (and remove posted message if present)')
-        .addIntegerOption(o => o.setName('id').setDescription('Panel id to delete').setRequired(false))
+        .addStringOption(o => o.setName('id').setDescription('Panel id to delete (enter the number, or paste like "#3" or "panel 3").').setRequired(false))
         .addChannelOption(o => o.setName('channel').setDescription('Channel where panel message is posted').setRequired(false))
     ),
   async execute(interaction: any, ctx: any) {

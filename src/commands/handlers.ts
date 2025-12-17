@@ -394,13 +394,17 @@ export default {
     }
 
     if (sub === 'delete') {
-      const id = interaction.options.getInteger('id');
+      const idInput = interaction.options.getString('id');
       const channel = interaction.options.getChannel('channel') as any;
       let panel: any = null;
-      if (typeof id === 'number') panel = getPanelById(id);
+      let idNum: number | null = null;
+      if (typeof idInput === 'string' && idInput.trim()) {
+        const m = idInput.match(/(\d+)/);
+        if (m) idNum = Number(m[1]);
+      }
+      if (typeof idNum === 'number' && !Number.isNaN(idNum)) panel = getPanelById(idNum);
       else if (channel) panel = getPanelByChannel(channel.id);
       if (!panel) return interaction.editReply({ embeds: [makeEmbed('Panel not found. Provide a valid id or the channel where it was posted.')] });
-      // try delete posted message
       if (panel.channelId && panel.messageId) {
         try {
           const ch = await ctx.client.channels.fetch(panel.channelId as string) as any;
