@@ -1,10 +1,10 @@
 import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel } from '../../lib/database';
+import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const panel = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
-  const settings = interaction.guildId ? (await import('../../lib/database')).getGuildSettings(interaction.guildId) : null;
+  const settings = interaction.guildId ? (await import('../lib/database')).getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to manage panels.')] });
   let sub = 'create';
@@ -73,7 +73,7 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
 
 export const sendpanel = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
-  const settings = interaction.guildId ? (await import('../../lib/database')).getGuildSettings(interaction.guildId) : null;
+  const settings = interaction.guildId ? (await import('../lib/database')).getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to send panels.')] });
   const channel = interaction.options.getChannel('channel') as any;

@@ -2,3 +2,4 @@
 transcripts/*
 node_modules
 data/*
+dist

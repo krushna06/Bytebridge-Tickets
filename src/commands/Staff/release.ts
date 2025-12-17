@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import handlers from '../handlers';
+import handlers from '../../handlers';
 
 export default {
   data: new SlashCommandBuilder().setName('release').setDescription('Release a claimed ticket'),

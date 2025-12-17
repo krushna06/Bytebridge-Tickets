@@ -5,7 +5,7 @@ import {
   setTicketMeta,
   getTicketMeta,
   incStaffStat
-} from '../../lib/database';
+} from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const add = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

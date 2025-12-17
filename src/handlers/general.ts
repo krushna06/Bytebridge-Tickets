@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from 'discord.js';
-import { getTag, listTicketsForUser } from '../../lib/database';
+import { getTag, listTicketsForUser } from '../lib/database';
 import { Ctx, makeEmbed } from './common';
 
 export const help = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

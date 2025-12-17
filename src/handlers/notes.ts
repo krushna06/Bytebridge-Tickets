@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from 'discord.js';
-import { addNote, getNotesForUser, deleteNote } from '../../lib/database';
+import { addNote, getNotesForUser, deleteNote } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const note = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
@@ -10,7 +10,7 @@ export const note = async function (interaction: ChatInputCommandInteraction, ct
   addNote(interaction.guildId!, interaction.user.id, target.id, content, isPrivate);
   try {
     const channel = interaction.channel;
-    const settings = interaction.guildId ? (await import('../../lib/database')).getGuildSettings(interaction.guildId) : null;
+    const settings = interaction.guildId ? (await import('../lib/database')).getGuildSettings(interaction.guildId) : null;
     if (channel && (channel as any).isTextBased && (channel as any).isTextBased()) {
       const thread = await (channel as any).threads.create({ name: `note-${Date.now()}`, autoArchiveDuration: 60, type: 12 });
       await thread.send({ content: `Private note by <@${interaction.user.id}> for <@${target.id}>:\n${content}` });

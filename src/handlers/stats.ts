@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from 'discord.js';
-import { createOrUpdateProfile, getProfile, getLeaderboard, countTicketsByGuild, countOpenTicketsByGuild } from '../../lib/database';
+import { createOrUpdateProfile, getProfile, getLeaderboard, countTicketsByGuild, countOpenTicketsByGuild } from '../lib/database';
 import { Ctx, makeEmbed } from './common';
 
 export const leaderboard = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

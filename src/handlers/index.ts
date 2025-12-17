@@ -1,8 +1,8 @@
-import * as general from './handlers/general';
-import * as ticket from './handlers/ticket';
-import * as notes from './handlers/notes';
-import * as stats from './handlers/stats';
-import * as panels from './handlers/panels';
+import * as general from './general';
+import * as ticket from './ticket';
+import * as notes from './notes';
+import * as stats from './stats';
+import * as panels from './panels';
 
 export default {
   help: general.help,
