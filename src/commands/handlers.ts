@@ -4,7 +4,10 @@ import {
   GuildMember,
   PermissionFlagsBits,
   Channel,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } from 'discord.js';
 
 import {
@@ -25,7 +28,11 @@ import {
   setTicketMeta,
   getTicketMeta,
   countTicketsByGuild,
-  countOpenTicketsByGuild
+  countOpenTicketsByGuild,
+  createPanel,
+  getLatestPanelForGuild,
+  getPanelById,
+  updatePanelMessage
 } from '../lib/database';
 
 export type Ctx = { client: Client; ticketManager: any };
@@ -337,5 +344,46 @@ export default {
     if (!ticket) return interaction.editReply('This channel is not a ticket.');
     if (!ticket.transcriptPath) return interaction.editReply('No transcript saved yet.');
     return interaction.editReply({ content: `Transcript path: ${ticket.transcriptPath}` });
+  },
+
+  async panel(interaction: ChatInputCommandInteraction, ctx: Ctx) {
+    await interaction.deferReply({ ephemeral: true });
+    const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+    const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+    if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to manage panels.')] });
+    let sub = 'create';
+    try { sub = interaction.options.getSubcommand(); } catch (e) { sub = 'create'; }
+    if (sub === 'create') {
+      const title = interaction.options.getString('title') || null;
+      const buttons: string[] = [];
+      for (let i = 1; i <= 5; i++) {
+        const b = interaction.options.getString(`button${i}` as any);
+        if (b && b.trim()) buttons.push(b.trim());
+      }
+      if (!buttons.length) return interaction.editReply({ embeds: [makeEmbed('Please provide at least one button label (up to 5).')] });
+      const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons);
+      return interaction.editReply({ embeds: [makeEmbed(`Panel created with id ${panelId}. Run /sendpanel to post it to a channel.`)] });
+    }
+    return interaction.editReply({ embeds: [makeEmbed('Unknown panel subcommand.')] });
+  },
+
+  async sendpanel(interaction: ChatInputCommandInteraction, ctx: Ctx) {
+    await interaction.deferReply({ ephemeral: true });
+    const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+    const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+    if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to send panels.')] });
+    const channel = interaction.options.getChannel('channel') as any;
+    if (!channel || !('isTextBased' in channel) || !channel.isTextBased()) return interaction.editReply({ embeds: [makeEmbed('Please provide a valid text channel.')] });
+    const panel = getLatestPanelForGuild(interaction.guildId!);
+    if (!panel) return interaction.editReply({ embeds: [makeEmbed('No saved panel found for this guild. Create one with /panel create.')] });
+    const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
+    const row = new ActionRowBuilder<ButtonBuilder>();
+    panel.buttons.slice(0,5).forEach((label: string, idx: number) => {
+      const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+      row.addComponents(btn as any);
+    });
+    const sent = await channel.send({ embeds: [embed], components: [row as any] });
+    updatePanelMessage(panel.id, channel.id, sent.id);
+    return interaction.editReply({ embeds: [makeEmbed(`Panel sent to ${channel}`)] });
   }
 };

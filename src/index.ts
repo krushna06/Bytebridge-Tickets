@@ -4,6 +4,10 @@ import TicketManager from './structures/TicketManager';
 import {
   getTicketByChannel,
   getTicketById,
+  getPanelById,
+  createPanel,
+  getLatestPanelForGuild,
+  updatePanelMessage,
   getGuildSettings,
   getTag,
   createTag,
@@ -55,10 +59,24 @@ client.once('ready', () => {
 client.on('interactionCreate', async (interaction: any) => {
   try {
     if (interaction.isButton && interaction.isButton()) {
-      const custom = interaction.customId as string;
-      if (custom && typeof custom === 'string' && (custom.startsWith('ticket_claim:') || custom.startsWith('ticket_close:'))) {
-        const parts = custom.split(':');
-        const action = parts[0] + '_' + parts[1];
+      const custom = String(interaction.customId || '');
+      if (!custom) return;
+      const parts = custom.split(':');
+      const prefix = parts[0];
+
+      if (prefix === 'panel_open') {
+        const panelId = Number(parts[1]);
+        const idx = Number(parts[2] ?? 0);
+        const panel = getPanelById(panelId);
+        if (!panel) return await interaction.reply({ ephemeral: true, content: 'Panel not found.' });
+        const label = (panel.buttons && panel.buttons[idx]) || `Category ${idx + 1}`;
+        const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
+        const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`);
+        setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
+        return await interaction.reply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
+      }
+
+      if (prefix === 'ticket_claim' || prefix === 'ticket_close') {
         const ticketId = Number(parts[1]);
         const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
         const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
@@ -75,7 +93,7 @@ client.on('interactionCreate', async (interaction: any) => {
         if (!ticket) return await interaction.reply({ ephemeral: true, content: 'Ticket not found.' });
         if (interaction.channelId !== ticket.channelId) return await interaction.reply({ ephemeral: true, content: 'This button does not belong to this channel.' });
 
-        if (custom.startsWith('ticket_claim:')) {
+        if (prefix === 'ticket_claim') {
           if (!isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
           const meta = getTicketMeta(ticket.id);
           if (meta && meta.claimedBy) {
@@ -112,7 +130,7 @@ client.on('interactionCreate', async (interaction: any) => {
           return await interaction.reply({ ephemeral: true, content: 'Ticket claimed.' });
         }
 
-        if (custom.startsWith('ticket_close:')) {
+        if (prefix === 'ticket_close') {
           if (ticket.userId !== interaction.user.id && !isStaff(member)) return await interaction.reply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
           const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id);
           incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
@@ -166,6 +184,46 @@ client.on('interactionCreate', async (interaction: any) => {
       const tag = getTag(interaction.guildId!, tagName);
       if (!tag) return interaction.editReply({ content: `Tag '${tagName}' not found.` });
       return interaction.editReply({ content: tag.content });
+    }
+
+    // --- Panels ---
+    if (name === 'panel') {
+      await interaction.deferReply({ ephemeral: true });
+      const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+      if (!isStaff(member)) return interaction.editReply('You do not have permission to create panels.');
+      let sub = 'create';
+      try { sub = interaction.options.getSubcommand(); } catch (e) { sub = 'create'; }
+      if (sub === 'create') {
+        const title = interaction.options.getString('title') || null;
+        const buttons: string[] = [];
+        for (let i = 1; i <= 5; i++) {
+          const b = interaction.options.getString(`button${i}` as any);
+          if (b && b.trim()) buttons.push(b.trim());
+        }
+        if (!buttons.length) return interaction.editReply('Please provide at least one button label (up to 5).');
+        const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons);
+        return interaction.editReply({ content: `Panel created with id ${panelId}. Run /sendpanel in order to post it to a channel.` });
+      }
+      return interaction.editReply('Unknown panel subcommand.');
+    }
+
+    if (name === 'sendpanel') {
+      await interaction.deferReply({ ephemeral: true });
+      const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+      if (!isStaff(member)) return interaction.editReply('You do not have permission to send panels.');
+      const channel = interaction.options.getChannel('channel', true);
+      if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) return interaction.editReply('Please provide a valid text channel.');
+      const panel = getLatestPanelForGuild(interaction.guildId!);
+      if (!panel) return interaction.editReply('No saved panel found for this guild. Create one with /panel create.');
+      const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
+      const row = new ActionRowBuilder<ButtonBuilder>();
+      panel.buttons.slice(0,5).forEach((label: string, idx: number) => {
+        const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+        row.addComponents(btn as any);
+      });
+      const sent = await (channel as any).send({ embeds: [embed], components: [row as any] });
+      updatePanelMessage(panel.id, (channel as any).id, sent.id);
+      return interaction.editReply({ content: `Panel sent to ${channel}` });
     }
 
     if (name === 'tickets') {

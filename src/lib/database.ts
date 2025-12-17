@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS tags (
   createdAt INTEGER,
   PRIMARY KEY (guildId, name)
 );
+
+CREATE TABLE IF NOT EXISTS panels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildId TEXT NOT NULL,
+  title TEXT,
+  creatorId TEXT,
+  buttons TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  channelId TEXT,
+  messageId TEXT
+);
 `);
 
 export type GuildSettingsRow = {
@@ -228,6 +239,33 @@ export function getTag(guildId: string, name: string){
 export function listTags(guildId: string){
   const stmt = db.prepare('SELECT name FROM tags WHERE guildId = ?');
   return (stmt.all(guildId) as { name: string }[]).map(r => r.name);
+}
+
+export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: string[]){
+  const stmt = db.prepare('INSERT INTO panels (guildId,title,creatorId,buttons,createdAt) VALUES (?,?,?,?,?)');
+  const info = stmt.run(guildId, title || null, creatorId || null, JSON.stringify(buttons), Date.now());
+  return Number((info as any).lastInsertRowid || info.lastInsertRowid);
+}
+
+export function getLatestPanelForGuild(guildId: string){
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? ORDER BY createdAt DESC LIMIT 1');
+  const row = stmt.get(guildId) as PanelRow | undefined;
+  if (!row) return null;
+  return { ...row, buttons: JSON.parse(row.buttons) as string[] };
+}
+
+export function getPanelById(id: number){
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  const stmt = db.prepare('SELECT * FROM panels WHERE id = ?');
+  const row = stmt.get(id) as PanelRow | undefined;
+  if (!row) return null;
+  return { ...row, buttons: JSON.parse(row.buttons) as string[] };
+}
+
+export function updatePanelMessage(panelId: number, channelId: string, messageId: string){
+  const stmt = db.prepare('UPDATE panels SET channelId = @channelId, messageId = @messageId WHERE id = @panelId');
+  stmt.run({ channelId, messageId, panelId });
 }
 
 export function updateTicketRow(id: number, patch: Partial<TicketRow>) {
