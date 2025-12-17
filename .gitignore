@@ -1,0 +1,4 @@
+.env
+transcripts/*
+node_modules
+data/*
