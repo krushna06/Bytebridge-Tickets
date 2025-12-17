@@ -92,8 +92,7 @@ app.get('/api/transcript', requireApiKey, (req: any, res: any) => {
   res.download(abs);
 });
 
-// Public transcripts endpoint (no auth) - serve transcript by ticket id
-// Public transcripts endpoint (no auth) - serve transcript files by filename in the transcripts folder
+
 app.get('/transcripts/:filename', (req: any, res: any) => {
   const filename = req.params.filename as string;
   if (!filename) return res.status(400).send('Missing filename');
