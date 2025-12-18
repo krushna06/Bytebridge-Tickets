@@ -22,6 +22,7 @@ import {
   getLeaderboard,
   setTicketMeta,
   getTicketMeta,
+  addFeedback,
   countTicketsByGuild,
   countOpenTicketsByGuild
 } from './lib/database';
@@ -106,6 +107,42 @@ client.on('interactionCreate', async (interaction: any) => {
         } catch (e) {
           try { await interaction.reply({ ephemeral: true, content: 'Thanks for your feedback.' }); } catch (e) {}
         }
+
+        try {
+          const ticketRec = getTicketById(ticketId);
+          if (ticketRec) {
+            const meta = getTicketMeta(ticketId as any) as any | null;
+            const handledBy = (meta && meta.claimedBy) ? meta.claimedBy : (ticketRec.closedBy || null);
+            try { addFeedback(ticketRec.guildId, ticketId, interaction.user.id, score, handledBy); } catch (e) { console.warn('Failed to add feedback to DB', e); }
+
+            const host = process.env.TRANSCRIPTS_HOST || process.env.HOSTNAME || 'localhost';
+            const port = process.env.TRANSCRIPTS_PORT || process.env.PORT || process.env.BOT_API_PORT || '3000';
+            const proto = process.env.TRANSCRIPTS_PROTOCOL || process.env.BOT_API_PROTOCOL || 'http';
+            const base = `${proto}://${host}:${port}`;
+            const filename = ticketRec.transcriptPath ? (require('path').basename(ticketRec.transcriptPath)) : null;
+            const transcriptLink = filename ? `${base}/transcripts/${encodeURIComponent(filename)}` : `${base}/transcripts/`;
+
+            const gs = getGuildSettings(ticketRec.guildId as string) as any | null;
+            if (gs && gs.feedbackChannelId) {
+              try {
+                const fc = await (interaction.client as any).channels.fetch(gs.feedbackChannelId as string);
+                if (fc && (fc as any).isTextBased()) {
+                  let linkText = ticketRec.channelId;
+                  try {
+                    const ch = await (interaction.client as any).channels.fetch(ticketRec.channelId);
+                    if (ch) linkText = (ch as any).topic || (ch as any).name || linkText;
+                  } catch (e) {}
+
+                  const fbEmbed = new EmbedBuilder()
+                    .setDescription(`${interaction.user.tag} reviewed ticket: [${linkText}](${transcriptLink}) ( ⭐ ${score}/5 )`)
+                    .addFields({ name: 'Handled by', value: handledBy ? `<@${handledBy}>` : (ticketRec.closedBy ? `<@${ticketRec.closedBy}>` : 'Unknown') });
+                  await (fc as any).send({ embeds: [fbEmbed] });
+                }
+              } catch (e) { console.warn('Failed to post feedback to channel', e); }
+            }
+          }
+        } catch (e) { console.warn('Failed to persist/post feedback', e); }
+
         return;
       }
       if (prefix === 'ticket_claim' || prefix === 'ticket_close') {
@@ -308,8 +345,9 @@ client.on('interactionCreate', async (interaction: any) => {
       await interaction.deferReply({ ephemeral: true });
       const user = interaction.options.getUser('user') || interaction.user;
       const content = interaction.options.getString('content', true);
-      const isPrivate = 1;
-      addNote(interaction.guildId!, interaction.user.id, user.id, content, isPrivate);
+      
+  const isPrivate = 1;
+  addNote(interaction.guildId!, interaction.user.id, user.id, content, isPrivate);
       try {
         const channel = interaction.channel;
         if (channel && channel.isTextBased()) {

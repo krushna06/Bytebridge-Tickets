@@ -63,8 +63,8 @@ export class TicketManager {
     const closedAt = Date.now();
     await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Transcript saved.`);
 
-    const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
-    updateTicketRow(ticket.id, { status: 'closed', closedAt, transcriptPath });
+  const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
+  updateTicketRow(ticket.id, { status: 'closed', closedAt, transcriptPath, closedBy: closerId || null });
 
     try {
       const settings = getGuildSettings((channel as TextChannel).guild.id as string) || null;

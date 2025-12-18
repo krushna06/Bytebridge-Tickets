@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS guild_settings (
   claimEnabled INTEGER DEFAULT 1,
   transcriptEnabled INTEGER DEFAULT 1,
   transcriptChannelId TEXT,
+  feedbackChannelId TEXT,
   closeTimeout INTEGER DEFAULT 0
 );
 
@@ -37,7 +38,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   status TEXT NOT NULL,
   createdAt INTEGER NOT NULL,
   closedAt INTEGER,
-  transcriptPath TEXT
+  transcriptPath TEXT,
+  closedBy TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_meta (
@@ -93,7 +95,35 @@ CREATE TABLE IF NOT EXISTS panels (
   channelId TEXT,
   messageId TEXT
 );
+
+CREATE TABLE IF NOT EXISTS ticket_feedback (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildId TEXT NOT NULL,
+  ticketId INTEGER NOT NULL,
+  userId TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  handledBy TEXT,
+  createdAt INTEGER NOT NULL
+);
 `);
+
+// Ensure legacy DBs get new columns if missing
+try {
+  const info = db.prepare("PRAGMA table_info(guild_settings)").all();
+  const cols = (info || []).map((c: any) => c.name);
+  if (!cols.includes('feedbackChannelId')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN feedbackChannelId TEXT').run();
+  }
+} catch (e) { /* ignore */ }
+
+try {
+  const info2 = db.prepare("PRAGMA table_info(tickets)").all();
+  const cols2 = (info2 || []).map((c: any) => c.name);
+  if (!cols2.includes('closedBy')) {
+    db.prepare('ALTER TABLE tickets ADD COLUMN closedBy TEXT').run();
+  }
+} catch (e) { /* ignore */ }
+
 
 export type GuildSettingsRow = {
   guildId: string;
@@ -104,6 +134,7 @@ export type GuildSettingsRow = {
   claimEnabled?: number;
   transcriptEnabled?: number;
   transcriptChannelId?: string | null;
+  feedbackChannelId?: string | null;
   closeTimeout?: number;
 };
 
@@ -115,8 +146,8 @@ export function getGuildSettings(guildId: string): GuildSettingsRow | null {
 
 export function upsertGuildSettings(settings: GuildSettingsRow) {
   const stmt = db.prepare(`INSERT INTO guild_settings (
-    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, closeTimeout
-  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@closeTimeout)
+    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout
+  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout)
   ON CONFLICT(guildId) DO UPDATE SET
     staffRoleId=excluded.staffRoleId,
     allowedRoles=excluded.allowedRoles,
@@ -125,6 +156,7 @@ export function upsertGuildSettings(settings: GuildSettingsRow) {
     claimEnabled=excluded.claimEnabled,
     transcriptEnabled=excluded.transcriptEnabled,
     transcriptChannelId=excluded.transcriptChannelId,
+    feedbackChannelId=excluded.feedbackChannelId,
     closeTimeout=excluded.closeTimeout
   `);
   stmt.run(settings as any);
@@ -139,6 +171,7 @@ export type TicketRow = {
   createdAt: number;
   closedAt?: number | null;
   transcriptPath?: string | null;
+  closedBy?: string | null;
 };
 
 export type NewTicketRow = Omit<TicketRow, 'id'>;
@@ -309,6 +342,17 @@ export function updateTicketRow(id: number, patch: Partial<TicketRow>) {
   const set = keys.map(k => `${k} = @${k}`).join(', ');
   const stmt = db.prepare(`UPDATE tickets SET ${set} WHERE id = @id`);
   (stmt as any).run({ ...patch, id });
+}
+
+export function addFeedback(guildId: string, ticketId: number, userId: string, score: number, handledBy?: string | null) {
+  const stmt = db.prepare('INSERT INTO ticket_feedback (guildId,ticketId,userId,score,handledBy,createdAt) VALUES (?,?,?,?,?,?)');
+  const info = stmt.run(guildId, ticketId, userId, score, handledBy || null, Date.now());
+  return Number((info as any).lastInsertRowid || info.lastInsertRowid);
+}
+
+export function getFeedbackForTicket(ticketId: number){
+  const stmt = db.prepare('SELECT * FROM ticket_feedback WHERE ticketId = ? ORDER BY createdAt DESC');
+  return stmt.all(ticketId) as any[];
 }
 
 export function getTicketByChannel(channelId: string) {

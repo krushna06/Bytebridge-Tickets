@@ -13,6 +13,7 @@ import panel from './Staff/panel';
 import sendpanel from './Staff/sendpanel';
 import setstaff from './Staff/setstaff';
 import settranscript from './Staff/settranscript';
+import setfeedback from './Staff/setfeedback';
 
 import leaderboard from './Stats/leaderboard';
 import stats from './Stats/stats';
@@ -36,6 +37,7 @@ const commands = [
   panel, sendpanel,
   setstaff,
   settranscript,
+  setfeedback,
   leaderboard, stats, setprofile, viewprofile,
   add, remove, close, rename, topic, transcript,
   note, stickynotes, viewnotes
