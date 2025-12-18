@@ -55,7 +55,7 @@ export const stickynotes = async function (interaction: ChatInputCommandInteract
 
 export const viewnotes = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
-  const user = interaction.options.getUser('user', true);
+  const user = interaction.options.getUser('user') || interaction.user;
   const notes = getNotesForUser(interaction.guildId!, user.id);
   if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No notes found.')] });
   const out = notes.map((n: any) => `- ${n.createdAt}: ${n.content}`).join('\n');
