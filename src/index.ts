@@ -85,8 +85,9 @@ client.on('interactionCreate', async (interaction: any) => {
   const button = panel.buttons && panel.buttons[idx];
   const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
   const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
-        const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
-        const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`, categoryId);
+  try { await interaction.deferReply({ ephemeral: true }); } catch (e) { /* ignore if already deferred */ }
+  const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
+  const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`, categoryId);
         setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
   return await safeReply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
       }
@@ -164,6 +165,7 @@ client.on('interactionCreate', async (interaction: any) => {
 
         if (prefix === 'ticket_claim') {
           if (!isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
+          try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
           const meta = getTicketMeta(ticket.id);
           if (meta && meta.claimedBy) {
             return await safeReply({ ephemeral: true, content: `Ticket already claimed by <@${meta.claimedBy}>.` });
@@ -201,6 +203,7 @@ client.on('interactionCreate', async (interaction: any) => {
 
         if (prefix === 'ticket_close') {
           if (ticket.userId !== interaction.user.id && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+          try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
           const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id);
           incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
           return await safeReply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });

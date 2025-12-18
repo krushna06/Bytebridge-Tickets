@@ -28,6 +28,12 @@ export class TicketManager {
       createdAt: Date.now()
     });
 
+    try {
+      const newName = `ticket-${ticketId}`;
+      if ((channel as any).setName) await (channel as any).setName(newName);
+    } catch (e) {
+    }
+
     const embed = new EmbedBuilder()
       .setTitle('New ticket')
       .setDescription(`Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : ''))
