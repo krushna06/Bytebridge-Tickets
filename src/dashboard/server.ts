@@ -3,7 +3,17 @@ import fs from 'fs';
 import path from 'path';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-import { getGuildSettings, upsertGuildSettings, listTicketsForGuild, getTicketById, updateTicketRow } from '../lib/database';
+import {
+  getGuildSettings,
+  upsertGuildSettings,
+  listTicketsForGuild,
+  getTicketById,
+  updateTicketRow,
+  countTicketsByGuild,
+  countOpenTicketsByGuild,
+  listPanels,
+  listFeedbackForGuild
+} from '../lib/database';
 
 dotenv.config();
 
@@ -20,15 +30,86 @@ function requireApiKey(req: any, res: any, next: any) {
 
 app.get('/api/guilds/:guildId/settings', requireApiKey, (req: any, res: any) => {
   const s = getGuildSettings(req.params.guildId);
-  res.json(s || {});
+  const out = {
+    embedColor: s && s.embedColor ? s.embedColor : '#5865f2',
+    embedFooter: s && s.embedFooter ? s.embedFooter : 'Support Team',
+    claimEnabled: s && typeof s.claimEnabled !== 'undefined' ? !!s.claimEnabled : true,
+    ticketChannel: s && s.ticketChannelId ? s.ticketChannelId : '',
+    transcriptChannel: s && s.transcriptChannelId ? s.transcriptChannelId : '',
+    feedbackChannel: s && s.feedbackChannelId ? s.feedbackChannelId : '',
+    logsChannel: s && s.logsChannelId ? s.logsChannelId : ''
+  };
+  res.json(out);
 });
 
 app.post('/api/guilds/:guildId/settings', requireApiKey, (req: any, res: any) => {
-  const payload = req.body;
-  payload.guildId = req.params.guildId;
-  if (payload.allowedRoles && Array.isArray(payload.allowedRoles)) payload.allowedRoles = JSON.stringify(payload.allowedRoles);
-  upsertGuildSettings(payload);
+  const guildId = req.params.guildId;
+  const existing = getGuildSettings(guildId);
+  const body = req.body || {};
+  const toSave = {
+    guildId,
+    staffRoleId: existing ? existing.staffRoleId : null,
+    allowedRoles: existing ? existing.allowedRoles : null,
+    categoryId: existing ? existing.categoryId : null,
+    closedCategoryId: existing ? existing.closedCategoryId : null,
+    claimEnabled: body.claimEnabled ? 1 : 0,
+    transcriptEnabled: existing ? existing.transcriptEnabled : 1,
+    transcriptChannelId: body.transcriptChannel || (existing ? existing.transcriptChannelId : null),
+    feedbackChannelId: body.feedbackChannel || (existing ? existing.feedbackChannelId : null),
+    closeTimeout: existing ? existing.closeTimeout : 0,
+    embedColor: body.embedColor || (existing ? existing.embedColor : null),
+    embedFooter: body.embedFooter || (existing ? existing.embedFooter : null),
+    ticketChannelId: body.ticketChannel || (existing ? existing.ticketChannelId : null),
+    logsChannelId: body.logsChannel || (existing ? existing.logsChannelId : null)
+  } as any;
+  upsertGuildSettings(toSave);
   res.json({ ok: true });
+});
+
+app.get('/api/guilds/:guildId/overview', requireApiKey, (req: any, res: any) => {
+  const guildId = req.params.guildId;
+  const totalTickets = countTicketsByGuild(guildId);
+  const openTickets = countOpenTicketsByGuild(guildId);
+  const tickets = listTicketsForGuild(guildId);
+  const closed = tickets.filter((t: any) => t.closedAt && t.closedAt > 0);
+  const resolveDurations = closed
+    .map((t: any) => Number(t.closedAt) - Number(t.createdAt))
+    .filter((d: any) => typeof d === 'number' && d >= 0);
+  const avgResolveMs = resolveDurations.length
+    ? Math.round(resolveDurations.reduce((a: number, b: number) => a + b, 0) / resolveDurations.length)
+    : null;
+
+  const responseDurations: number[] = [];
+  for (const t of tickets as any[]) {
+    if (!t.transcriptPath) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(t.transcriptPath, 'utf8');
+    } catch (e) {
+      continue;
+    }
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
+      if (!m) continue;
+      const ts = Date.parse(m[1]);
+      const authorId = m[2];
+      if (authorId === String(t.userId)) continue;
+      const respMs = ts - Number(t.createdAt);
+      if (respMs >= 0) responseDurations.push(respMs);
+      break;
+    }
+  }
+  const avgResponseMs = responseDurations.length
+    ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length)
+    : null;
+
+  res.json({
+    totalTickets,
+    openTickets,
+    avgResolveMs,
+    avgResponseMs
+  });
 });
 
 app.get('/api/guilds/:guildId/tickets', requireApiKey, (req: any, res: any) => {
@@ -90,6 +171,103 @@ app.get('/api/transcript', requireApiKey, (req: any, res: any) => {
   const abs = path.resolve(filepath);
   if (!fs.existsSync(abs)) return res.status(404).json({ error: 'not found' });
   res.download(abs);
+});
+
+app.get('/api/guilds/:guildId/transcripts', requireApiKey, (req: any, res: any) => {
+  const guildId = req.params.guildId;
+  const tickets = listTicketsForGuild(guildId);
+  const items = tickets
+    .filter((t: any) => t.transcriptPath && typeof t.transcriptPath === 'string')
+    .map((t: any) => {
+      const createdAt = Number(t.createdAt);
+      const date = new Date(createdAt || Date.now()).toISOString();
+      let messages = 0;
+      try {
+        const content = fs.readFileSync(t.transcriptPath, 'utf8');
+        messages = content.split('\n').map(l => l.trim()).filter(Boolean).length;
+      } catch (e) {
+        messages = 0;
+      }
+      return {
+        id: String(t.id),
+        ticketId: String(t.id),
+        date,
+        messages,
+        path: t.transcriptPath
+      };
+    });
+  res.json(items);
+});
+
+app.get('/api/guilds/:guildId/panels', requireApiKey, (req: any, res: any) => {
+  const guildId = req.params.guildId;
+  const panels = listPanels(guildId);
+  res.json(panels);
+});
+
+app.get('/api/guilds/:guildId/feedbacks', requireApiKey, (req: any, res: any) => {
+  const guildId = req.params.guildId;
+  const feedbacks = listFeedbackForGuild(guildId);
+  const items = feedbacks.map((f: any) => {
+    const date = new Date(Number(f.createdAt) || Date.now()).toISOString();
+    return {
+      id: String(f.id),
+      ticketId: String(f.ticketId),
+      userId: String(f.userId),
+      score: Number(f.score),
+      handledBy: f.handledBy ? String(f.handledBy) : null,
+      date
+    };
+  });
+  res.json(items);
+});
+
+app.get('/api/guilds/:guildId/logs', requireApiKey, (req: any, res: any) => {
+  const guildId = req.params.guildId;
+  const tickets = listTicketsForGuild(guildId) as any[];
+  const feedbacks = listFeedbackForGuild(guildId) as any[];
+  type LogItem = { id: string; type: 'info' | 'success' | 'error'; action: string; details: string; timestamp: number };
+  const logs: LogItem[] = [];
+
+  for (const t of tickets) {
+    logs.push({
+      id: `ticket-created-${t.id}`,
+      type: 'info',
+      action: 'Ticket Created',
+      details: `Ticket #${t.id} for user ${t.userId}`,
+      timestamp: Number(t.createdAt) || Date.now()
+    });
+    if (t.closedAt) {
+      logs.push({
+        id: `ticket-closed-${t.id}`,
+        type: 'success',
+        action: 'Ticket Resolved',
+        details: `Ticket #${t.id} closed by ${t.closedBy || 'system'}`,
+        timestamp: Number(t.closedAt)
+      });
+    }
+  }
+
+  for (const f of feedbacks) {
+    logs.push({
+      id: `feedback-${f.id}`,
+      type: 'success',
+      action: 'Feedback Submitted',
+      details: `Rating ${f.score}/5 for ticket #${f.ticketId}`,
+      timestamp: Number(f.createdAt) || Date.now()
+    });
+  }
+
+  logs.sort((a, b) => b.timestamp - a.timestamp);
+  const limited = logs.slice(0, 100).map(l => ({
+    id: l.id,
+    type: l.type,
+    action: l.action,
+    details: l.details,
+    timestamp: new Date(l.timestamp).toISOString()
+  }));
+
+  res.json(limited);
 });
 
 

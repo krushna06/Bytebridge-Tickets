@@ -27,7 +27,11 @@ export default {
       transcriptEnabled: settings ? settings.transcriptEnabled : 1,
       transcriptChannelId: settings ? settings.transcriptChannelId : null,
       feedbackChannelId: channel.id,
-      closeTimeout: settings ? settings.closeTimeout : 0
+      closeTimeout: settings ? settings.closeTimeout : 0,
+      embedColor: settings ? settings.embedColor : null,
+      embedFooter: settings ? settings.embedFooter : null,
+      ticketChannelId: settings ? settings.ticketChannelId : null,
+      logsChannelId: settings ? settings.logsChannelId : null
     } as any;
 
     upsertGuildSettings(newSettings);

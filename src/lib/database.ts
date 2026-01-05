@@ -27,7 +27,11 @@ CREATE TABLE IF NOT EXISTS guild_settings (
   transcriptEnabled INTEGER DEFAULT 1,
   transcriptChannelId TEXT,
   feedbackChannelId TEXT,
-  closeTimeout INTEGER DEFAULT 0
+  closeTimeout INTEGER DEFAULT 0,
+  embedColor TEXT,
+  embedFooter TEXT,
+  ticketChannelId TEXT,
+  logsChannelId TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
@@ -107,12 +111,23 @@ CREATE TABLE IF NOT EXISTS ticket_feedback (
 );
 `);
 
-// Ensure legacy DBs get new columns if missing
 try {
   const info = db.prepare("PRAGMA table_info(guild_settings)").all();
   const cols = (info || []).map((c: any) => c.name);
   if (!cols.includes('feedbackChannelId')) {
     db.prepare('ALTER TABLE guild_settings ADD COLUMN feedbackChannelId TEXT').run();
+  }
+  if (!cols.includes('embedColor')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN embedColor TEXT').run();
+  }
+  if (!cols.includes('embedFooter')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN embedFooter TEXT').run();
+  }
+  if (!cols.includes('ticketChannelId')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN ticketChannelId TEXT').run();
+  }
+  if (!cols.includes('logsChannelId')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN logsChannelId TEXT').run();
   }
 } catch (e) { /* ignore */ }
 
@@ -136,6 +151,10 @@ export type GuildSettingsRow = {
   transcriptChannelId?: string | null;
   feedbackChannelId?: string | null;
   closeTimeout?: number;
+   embedColor?: string | null;
+   embedFooter?: string | null;
+   ticketChannelId?: string | null;
+   logsChannelId?: string | null;
 };
 
 export function getGuildSettings(guildId: string): GuildSettingsRow | null {
@@ -146,8 +165,8 @@ export function getGuildSettings(guildId: string): GuildSettingsRow | null {
 
 export function upsertGuildSettings(settings: GuildSettingsRow) {
   const stmt = db.prepare(`INSERT INTO guild_settings (
-    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout
-  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout)
+    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout, embedColor, embedFooter, ticketChannelId, logsChannelId
+  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout,@embedColor,@embedFooter,@ticketChannelId,@logsChannelId)
   ON CONFLICT(guildId) DO UPDATE SET
     staffRoleId=excluded.staffRoleId,
     allowedRoles=excluded.allowedRoles,
@@ -157,7 +176,11 @@ export function upsertGuildSettings(settings: GuildSettingsRow) {
     transcriptEnabled=excluded.transcriptEnabled,
     transcriptChannelId=excluded.transcriptChannelId,
     feedbackChannelId=excluded.feedbackChannelId,
-    closeTimeout=excluded.closeTimeout
+    closeTimeout=excluded.closeTimeout,
+    embedColor=excluded.embedColor,
+    embedFooter=excluded.embedFooter,
+    ticketChannelId=excluded.ticketChannelId,
+    logsChannelId=excluded.logsChannelId
   `);
   stmt.run(settings as any);
 }
@@ -355,6 +378,17 @@ export function getFeedbackForTicket(ticketId: number){
   return stmt.all(ticketId) as any[];
 }
 
+export function listFeedbackForGuild(guildId: string) {
+  const stmt = db.prepare('SELECT * FROM ticket_feedback WHERE guildId = ? ORDER BY createdAt DESC');
+  return stmt.all(guildId) as any[];
+}
+
+export function deleteFeedback(feedbackId: number) {
+  const stmt = db.prepare('DELETE FROM ticket_feedback WHERE id = ?');
+  const info = stmt.run(feedbackId);
+  return Number((info as any).changes || 0);
+}
+
 export function getTicketByChannel(channelId: string) {
   const stmt = db.prepare('SELECT * FROM tickets WHERE channelId = ?');
   const row = stmt.get(channelId) as TicketRow | undefined;
@@ -387,6 +421,12 @@ export function countOpenTicketsByGuild(guildId: string){
   const stmt = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE guildId = ? AND status = 'open'");
   const row = stmt.get(guildId) as { c: number } | undefined;
   return Number(row?.c ?? 0);
+}
+
+export function deleteTicketRow(id: number) {
+  const stmt = db.prepare('DELETE FROM tickets WHERE id = ?');
+  const info = stmt.run(id);
+  return Number((info as any).changes || 0);
 }
 
 export default db;

@@ -1,22 +1,328 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import {
+  getGuildSettings,
+  upsertGuildSettings,
+  listTicketsForGuild,
+  getTicketById,
+  updateTicketRow,
+  countTicketsByGuild,
+  countOpenTicketsByGuild,
+  listPanels,
+  listFeedbackForGuild,
+  deleteTicketRow,
+  createPanel,
+  deletePanel,
+  deleteFeedback
+} from '../lib/database';
 import { TicketManager } from '../structures/TicketManager';
 
 dotenv.config();
 
 const BOT_API_KEY = process.env.BOT_API_KEY || process.env.DASHBOARD_API_KEY || '';
 
-export async function startBotApi(ticketManager: TicketManager) {
-  const app = express();
-  app.use(bodyParser.json());
+function registerSettingsRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/settings', requireKey, (req: any, res: any) => {
+    const s = getGuildSettings(req.params.guildId);
+    const out = {
+      embedColor: s && s.embedColor ? s.embedColor : '#5865f2',
+      embedFooter: s && s.embedFooter ? s.embedFooter : 'Support Team',
+      claimEnabled: s && typeof s.claimEnabled !== 'undefined' ? !!s.claimEnabled : true,
+      ticketChannel: s && s.ticketChannelId ? s.ticketChannelId : '',
+      transcriptChannel: s && s.transcriptChannelId ? s.transcriptChannelId : '',
+      feedbackChannel: s && s.feedbackChannelId ? s.feedbackChannelId : '',
+      logsChannel: s && s.logsChannelId ? s.logsChannelId : ''
+    };
+    res.json(out);
+  });
 
-  function requireKey(req: any, res: any, next: any) {
-    const key = req.header('X-BOT-KEY');
-    if (!key || key !== BOT_API_KEY) return res.status(401).json({ error: 'unauthorized' });
-    next();
-  }
+  app.post('/api/guilds/:guildId/settings', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const existing = getGuildSettings(guildId);
+    const body = req.body || {};
+    const toSave = {
+      guildId,
+      staffRoleId: existing ? existing.staffRoleId : null,
+      allowedRoles: existing ? existing.allowedRoles : null,
+      categoryId: existing ? existing.categoryId : null,
+      closedCategoryId: existing ? existing.closedCategoryId : null,
+      claimEnabled: body.claimEnabled ? 1 : 0,
+      transcriptEnabled: existing ? existing.transcriptEnabled : 1,
+      transcriptChannelId: body.transcriptChannel || (existing ? existing.transcriptChannelId : null),
+      feedbackChannelId: body.feedbackChannel || (existing ? existing.feedbackChannelId : null),
+      closeTimeout: existing ? existing.closeTimeout : 0,
+      embedColor: body.embedColor || (existing ? existing.embedColor : null),
+      embedFooter: body.embedFooter || (existing ? existing.embedFooter : null),
+      ticketChannelId: body.ticketChannel || (existing ? existing.ticketChannelId : null),
+      logsChannelId: body.logsChannel || (existing ? existing.logsChannelId : null)
+    } as any;
+    upsertGuildSettings(toSave);
+    res.json({ ok: true });
+  });
+}
 
+function registerOverviewRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/overview', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const totalTickets = countTicketsByGuild(guildId);
+    const openTickets = countOpenTicketsByGuild(guildId);
+    const tickets = listTicketsForGuild(guildId);
+    const closed = tickets.filter((t: any) => t.closedAt && t.closedAt > 0);
+    const resolveDurations = closed
+      .map((t: any) => Number(t.closedAt) - Number(t.createdAt))
+      .filter((d: any) => typeof d === 'number' && d >= 0);
+    const avgResolveMs = resolveDurations.length
+      ? Math.round(resolveDurations.reduce((a: number, b: number) => a + b, 0) / resolveDurations.length)
+      : null;
+
+    const responseDurations: number[] = [];
+    for (const t of tickets as any[]) {
+      if (!t.transcriptPath) continue;
+      let content: string;
+      try {
+        content = fs.readFileSync(t.transcriptPath, 'utf8');
+      } catch (e) {
+        continue;
+      }
+      const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
+        if (!m) continue;
+        const ts = Date.parse(m[1]);
+        const authorId = m[2];
+        if (authorId === String(t.userId)) continue;
+        const respMs = ts - Number(t.createdAt);
+        if (respMs >= 0) responseDurations.push(respMs);
+        break;
+      }
+    }
+    const avgResponseMs = responseDurations.length
+      ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length)
+      : null;
+
+    res.json({
+      totalTickets,
+      openTickets,
+      avgResolveMs,
+      avgResponseMs
+    });
+  });
+}
+
+function registerTicketRoutes(app: any, requireKey: any, ticketManager: TicketManager) {
+  app.get('/api/guilds/:guildId/tickets', requireKey, (req: any, res: any) => {
+    const rows = listTicketsForGuild(req.params.guildId);
+    res.json(rows);
+  });
+
+  app.get('/api/guilds/:guildId/tickets/:ticketId', requireKey, (req: any, res: any) => {
+    const id = Number(req.params.ticketId);
+    const ticket = getTicketById(id);
+    if (!ticket) return res.status(404).json({ error: 'not found' });
+    res.json(ticket);
+  });
+
+  app.post('/api/guilds/:guildId/tickets/:ticketId/close', requireKey, async (req: any, res: any) => {
+    const id = Number(req.params.ticketId);
+    const ticket = getTicketById(id);
+    if (!ticket) return res.status(404).json({ error: 'not found' });
+    updateTicketRow(id, { status: 'closed', closedAt: Date.now() });
+
+    try {
+      const result = await ticketManager.closeTicket(ticket.channelId, req.body.closerId || 'dashboard');
+      return res.json({ ok: true, transcriptPath: result.transcriptPath, ticketId: result.ticketId });
+    } catch (err: any) {
+      console.error('Error in /api/guilds/:guildId/tickets/:ticketId/close', err);
+      return res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+
+  app.post('/api/guilds/:guildId/tickets/:ticketId/reopen', requireKey, (req: any, res: any) => {
+    const id = Number(req.params.ticketId);
+    const ticket = getTicketById(id);
+    if (!ticket) return res.status(404).json({ error: 'not found' });
+    updateTicketRow(id, { status: 'open', closedAt: null });
+    res.json({ ok: true });
+  });
+
+  app.delete('/api/guilds/:guildId/tickets/:ticketId', requireKey, (req: any, res: any) => {
+    const id = Number(req.params.ticketId);
+    const ticket = getTicketById(id);
+    if (!ticket) return res.status(404).json({ error: 'not found' });
+    try {
+      deleteTicketRow(id);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('Error deleting ticket', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+}
+
+function registerTranscriptRoutes(app: any, requireKey: any) {
+  app.get('/api/transcript', requireKey, (req: any, res: any) => {
+    const filepath = req.query.path as string;
+    if (!filepath) return res.status(400).json({ error: 'missing path' });
+    const abs = path.resolve(filepath);
+    if (!fs.existsSync(abs)) return res.status(404).json({ error: 'not found' });
+    res.download(abs);
+  });
+
+  app.get('/api/guilds/:guildId/transcripts', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const tickets = listTicketsForGuild(guildId);
+    const items = tickets
+      .filter((t: any) => t.transcriptPath && typeof t.transcriptPath === 'string')
+      .map((t: any) => {
+        const createdAt = Number(t.createdAt);
+        const date = new Date(createdAt || Date.now()).toISOString();
+        let messages = 0;
+        try {
+          const content = fs.readFileSync(t.transcriptPath, 'utf8');
+          messages = content.split('\n').map(l => l.trim()).filter(Boolean).length;
+        } catch (e) {
+          messages = 0;
+        }
+        return {
+          id: String(t.id),
+          ticketId: String(t.id),
+          date,
+          messages,
+          path: t.transcriptPath
+        };
+      });
+    res.json(items);
+  });
+}
+
+function registerPanelRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/panels', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const panels = listPanels(guildId);
+    res.json(panels);
+  });
+
+  app.post('/api/guilds/:guildId/panels', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const { title } = req.body || {};
+    try {
+      const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', [{ label: 'Create Ticket' }]);
+      res.json({ ok: true, id: panelId });
+    } catch (err: any) {
+      console.error('Error creating panel', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+
+  app.delete('/api/guilds/:guildId/panels/:panelId', requireKey, (req: any, res: any) => {
+    const panelId = Number(req.params.panelId);
+    try {
+      deletePanel(panelId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('Error deleting panel', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+}
+
+function registerFeedbackRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/feedbacks', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const feedbacks = listFeedbackForGuild(guildId);
+    const items = feedbacks.map((f: any) => {
+      const date = new Date(Number(f.createdAt) || Date.now()).toISOString();
+      return {
+        id: String(f.id),
+        ticketId: String(f.ticketId),
+        userId: String(f.userId),
+        score: Number(f.score),
+        handledBy: f.handledBy ? String(f.handledBy) : null,
+        date
+      };
+    });
+    res.json(items);
+  });
+
+  app.delete('/api/guilds/:guildId/feedbacks/:feedbackId', requireKey, (req: any, res: any) => {
+    const feedbackId = Number(req.params.feedbackId);
+    try {
+      deleteFeedback(feedbackId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('Error deleting feedback', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+}
+
+function registerLogRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/logs', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const tickets = listTicketsForGuild(guildId) as any[];
+    const feedbacks = listFeedbackForGuild(guildId) as any[];
+    type LogItem = { id: string; type: 'info' | 'success' | 'error'; action: string; details: string; timestamp: number };
+    const logs: LogItem[] = [];
+
+    for (const t of tickets) {
+      logs.push({
+        id: `ticket-created-${t.id}`,
+        type: 'info',
+        action: 'Ticket Created',
+        details: `Ticket #${t.id} for user ${t.userId}`,
+        timestamp: Number(t.createdAt) || Date.now()
+      });
+      if (t.closedAt) {
+        logs.push({
+          id: `ticket-closed-${t.id}`,
+          type: 'success',
+          action: 'Ticket Resolved',
+          details: `Ticket #${t.id} closed by ${t.closedBy || 'system'}`,
+          timestamp: Number(t.closedAt)
+        });
+      }
+    }
+
+    for (const f of feedbacks) {
+      logs.push({
+        id: `feedback-${f.id}`,
+        type: 'success',
+        action: 'Feedback Submitted',
+        details: `Rating ${f.score}/5 for ticket #${f.ticketId}`,
+        timestamp: Number(f.createdAt) || Date.now()
+      });
+    }
+
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+    const limited = logs.slice(0, 100).map(l => ({
+      id: l.id,
+      type: l.type,
+      action: l.action,
+      details: l.details,
+      timestamp: new Date(l.timestamp).toISOString()
+    }));
+
+    res.json(limited);
+  });
+}
+
+function registerTranscriptFileRoute(app: any) {
+  app.get('/transcripts/:filename', (req: any, res: any) => {
+    const filename = req.params.filename as string;
+    if (!filename) return res.status(400).send('Missing filename');
+    const TRANSCRIPTS_PATH = process.env.TRANSCRIPTS_PATH || path.resolve(process.cwd(), 'transcripts');
+    const safe = path.basename(filename);
+    const abs = path.resolve(TRANSCRIPTS_PATH, safe);
+    if (!fs.existsSync(abs)) return res.status(404).send('Transcript not found');
+    res.sendFile(abs);
+  });
+}
+
+function registerInternalRoutes(app: any, requireKey: any, ticketManager: TicketManager) {
   app.post('/internal/close-ticket', requireKey, async (req: any, res: any) => {
     try {
       const { channelId, closerId } = req.body;
@@ -28,6 +334,28 @@ export async function startBotApi(ticketManager: TicketManager) {
       return res.status(500).json({ error: err?.message || 'internal error' });
     }
   });
+}
+
+export async function startBotApi(ticketManager: TicketManager) {
+  const app = express();
+  app.use(cors({ origin: 'http://localhost:3002' }));
+  app.use(bodyParser.json());
+
+  const requireKey = (req: any, res: any, next: any) => {
+    const key = req.header('X-BOT-KEY') || req.header('X-API-KEY') || req.query.apiKey;
+    if (!key || key !== BOT_API_KEY) return res.status(401).json({ error: 'unauthorized' });
+    next();
+  };
+
+  registerInternalRoutes(app, requireKey, ticketManager);
+  registerSettingsRoutes(app, requireKey);
+  registerOverviewRoutes(app, requireKey);
+  registerTicketRoutes(app, requireKey, ticketManager);
+  registerTranscriptRoutes(app, requireKey);
+  registerPanelRoutes(app, requireKey);
+  registerFeedbackRoutes(app, requireKey);
+  registerLogRoutes(app, requireKey);
+  registerTranscriptFileRoute(app);
 
   const port = Number(process.env.BOT_API_PORT || 3001);
   return new Promise<void>((resolve) => {
