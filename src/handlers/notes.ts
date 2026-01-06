@@ -24,7 +24,7 @@ export const note = async function (interaction: ChatInputCommandInteraction, ct
   } catch (e) {
     // ignore
   }
-  return interaction.editReply({ embeds: [makeEmbed('Note created.')] });
+  return interaction.editReply({ embeds: [makeEmbed('Note created.', undefined, interaction.guildId || undefined)] });
 };
 
 export const stickynotes = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
@@ -34,22 +34,22 @@ export const stickynotes = async function (interaction: ChatInputCommandInteract
   if (sub === 'add') {
     const user = interaction.options.getUser('user');
     const content = interaction.options.getString('text');
-    if (!user) return interaction.editReply({ embeds: [makeEmbed('Please specify a user to attach the sticky note to.')] });
-    if (!content) return interaction.editReply({ embeds: [makeEmbed('Please provide the note text.')] });
+    if (!user) return interaction.editReply({ embeds: [makeEmbed('Please specify a user to attach the sticky note to.', undefined, interaction.guildId || undefined)] });
+    if (!content) return interaction.editReply({ embeds: [makeEmbed('Please provide the note text.', undefined, interaction.guildId || undefined)] });
     addNote(interaction.guildId!, interaction.user.id, user.id, content, 0);
-    return interaction.editReply({ embeds: [makeEmbed(`Sticky note saved for ${user.tag}.`)] });
+    return interaction.editReply({ embeds: [makeEmbed(`Sticky note saved for ${user.tag}.`, undefined, interaction.guildId || undefined)] });
   } else if (sub === 'list') {
     const user = interaction.options.getUser('user') || interaction.user;
     const notes = getNotesForUser(interaction.guildId!, user.id);
-    if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No sticky notes found.')] });
+    if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No sticky notes found.', undefined, interaction.guildId || undefined)] });
     const out = notes.map((n: any) => `#${n.id} - ${new Date(n.createdAt).toISOString()}: ${n.content}`).join('\n');
-    return interaction.editReply({ embeds: [makeEmbed(`Sticky notes for ${user.tag}:\n${out}`)] });
+    return interaction.editReply({ embeds: [makeEmbed(`Sticky notes for ${user.tag}:\n${out}`, undefined, interaction.guildId || undefined)] });
   } else if (sub === 'remove') {
     const id = interaction.options.getInteger('id');
-    if (typeof id !== 'number') return interaction.editReply({ embeds: [makeEmbed('Please provide the note id to remove.')] });
+    if (typeof id !== 'number') return interaction.editReply({ embeds: [makeEmbed('Please provide the note id to remove.', undefined, interaction.guildId || undefined)] });
     const changes = (deleteNote as any)(id, interaction.guildId!);
-    if (changes) return interaction.editReply({ embeds: [makeEmbed(`Removed sticky note #${id}.`)] });
-    return interaction.editReply({ embeds: [makeEmbed(`No sticky note found with id ${id}.`)] });
+    if (changes) return interaction.editReply({ embeds: [makeEmbed(`Removed sticky note #${id}.`, undefined, interaction.guildId || undefined)] });
+    return interaction.editReply({ embeds: [makeEmbed(`No sticky note found with id ${id}.`, undefined, interaction.guildId || undefined)] });
   }
 };
 
@@ -57,7 +57,7 @@ export const viewnotes = async function (interaction: ChatInputCommandInteractio
   await interaction.deferReply({ ephemeral: true });
   const user = interaction.options.getUser('user') || interaction.user;
   const notes = getNotesForUser(interaction.guildId!, user.id);
-  if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No notes found.')] });
+  if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No notes found.', undefined, interaction.guildId || undefined)] });
   const out = notes.map((n: any) => `- ${n.createdAt}: ${n.content}`).join('\n');
-  return interaction.editReply({ embeds: [makeEmbed(`Notes for ${user.tag}:\n${out}`)] });
+  return interaction.editReply({ embeds: [makeEmbed(`Notes for ${user.tag}:\n${out}`, undefined, interaction.guildId || undefined)] });
 };

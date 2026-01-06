@@ -6,9 +6,9 @@ import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 export const leaderboard = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
   const rows = getLeaderboard(interaction.guildId!);
-  if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No stats yet.')] });
+  if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No stats yet.', undefined, interaction.guildId || undefined)] });
   const out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - closed: ${r.closedCount || 0}, claimed: ${r.claimedCount || 0}`).join('\n');
-  return interaction.editReply({ embeds: [makeEmbed(`Leaderboard:\n${out}`)] });
+  return interaction.editReply({ embeds: [makeEmbed(`Leaderboard:\n${out}`, undefined, interaction.guildId || undefined)] });
 };
 
 export const setprofile = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
@@ -16,7 +16,7 @@ export const setprofile = async function (interaction: ChatInputCommandInteracti
   const display = interaction.options.getString('display') || interaction.options.getString('name') || undefined;
   const bio = interaction.options.getString('bio') || undefined;
   createOrUpdateProfile(interaction.guildId!, interaction.user.id, display, bio);
-  return interaction.editReply({ embeds: [makeEmbed('Profile updated.')] });
+  return interaction.editReply({ embeds: [makeEmbed('Profile updated.', undefined, interaction.guildId || undefined)] });
 };
 
 export const stats = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
@@ -111,7 +111,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
       `Avg response: ${formatMs(avgUserResponse)} (${userResponses.length} first-responses)` ,
       `Avg resolve: ${formatMs(avgUserResolve)} (${closedByUserDurations.length} closes)`
     ];
-    return interaction.editReply({ embeds: [makeEmbed(lines.join('\n'))] });
+    return interaction.editReply({ embeds: [makeEmbed(lines.join('\n'), undefined, interaction.guildId || undefined)] });
   }
 
   const out = [
@@ -119,7 +119,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
     `Avg response time: ${formatMs(avgResponseMs)} (${responseDurations.length} samples)` ,
     `Avg resolve time: ${formatMs(avgResolveMs)} (${resolveDurations.length} samples)`
   ];
-  return interaction.editReply({ embeds: [makeEmbed(out.join('\n'))] });
+  return interaction.editReply({ embeds: [makeEmbed(out.join('\n'), undefined, interaction.guildId || undefined)] });
 };
 
 function formatMs(ms: number | null) {
@@ -139,6 +139,6 @@ export const viewprofile = async function (interaction: ChatInputCommandInteract
   await interaction.deferReply({ ephemeral: true });
   const user = interaction.options.getUser('user', true);
   const profile = getProfile(interaction.guildId!, user.id) as any | null;
-  if (!profile) return interaction.editReply({ embeds: [makeEmbed('No profile.')] });
-  return interaction.editReply({ embeds: [makeEmbed(`Profile for ${user.tag}: ${profile.displayName || ''} - ${profile.bio || ''}`)] });
+  if (!profile) return interaction.editReply({ embeds: [makeEmbed('No profile.', undefined, interaction.guildId || undefined)] });
+  return interaction.editReply({ embeds: [makeEmbed(`Profile for ${user.tag}: ${profile.displayName || ''} - ${profile.bio || ''}`, undefined, interaction.guildId || undefined)] });
 };

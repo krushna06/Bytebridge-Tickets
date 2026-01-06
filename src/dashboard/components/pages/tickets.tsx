@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Lock, Unlock } from "lucide-react"
+import { Trash2, Lock } from "lucide-react"
 
 interface LiveTicket {
   id: number
@@ -71,27 +71,7 @@ export function Tickets() {
     }
   }
 
-  const handleReopenTicket = async (ticketId: number) => {
-    setActionLoading(ticketId)
-    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
-    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
-    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
-    const headers: HeadersInit = { "Content-Type": "application/json" }
-    if (apiKey) headers["X-API-KEY"] = apiKey
-    try {
-      const res = await fetch(`${apiBase}/api/guilds/${guildId}/tickets/${ticketId}/reopen`, {
-        method: "POST",
-        headers,
-      })
-      if (res.ok) {
-        fetchTickets()
-      }
-    } catch (err) {
-      console.error("Error reopening ticket:", err)
-    } finally {
-      setActionLoading(null)
-    }
-  }
+
 
   const handleDeleteTicket = async (ticketId: number) => {
     if (!confirm("Are you sure you want to delete this ticket?")) return
@@ -148,7 +128,7 @@ export function Tickets() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  {t.status === "open" ? (
+                  {t.status === "open" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -158,17 +138,6 @@ export function Tickets() {
                     >
                       <Lock className="w-4 h-4" />
                       Close
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleReopenTicket(t.id)}
-                      disabled={actionLoading === t.id}
-                      className="gap-2"
-                    >
-                      <Unlock className="w-4 h-4" />
-                      Reopen
                     </Button>
                   )}
                   <Button

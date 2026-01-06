@@ -1,4 +1,5 @@
 import { Client, GuildMember, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { getGuildSettings } from '../lib/database';
 
 export type Ctx = { client: Client; ticketManager: any };
 
@@ -40,8 +41,17 @@ export function isStaffFromSettings(member: GuildMember | null | undefined, sett
   }
 }
 
-export function makeEmbed(desc: string, title?: string) {
+export function makeEmbed(desc: string, title?: string, guildId?: string) {
   const e = new EmbedBuilder().setDescription(desc);
   if (title) e.setTitle(title);
+  
+  // Get embedColor from guild settings if guildId is provided
+  if (guildId) {
+    const settings = getGuildSettings(guildId);
+    if (settings?.embedColor) {
+      e.setColor(settings.embedColor);
+    }
+  }
+  
   return e;
 }

@@ -34,9 +34,13 @@ export class TicketManager {
     } catch (e) {
     }
 
+    const settings = getGuildSettings(guild.id);
+    const embedColor = settings?.embedColor || '#5865f2';
+
     const embed = new EmbedBuilder()
       .setTitle('New ticket')
       .setDescription(`Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : ''))
+      .setColor(embedColor)
       .setTimestamp();
 
     const claimButton = new ButtonBuilder()
@@ -74,6 +78,7 @@ export class TicketManager {
 
     try {
       const settings = getGuildSettings((channel as TextChannel).guild.id as string) || null;
+      const embedColor = settings?.embedColor || '#5865f2';
       const user = await this.client.users.fetch(ticket.userId).catch(() => null);
       const openerName = user ? `${user.username}#${user.discriminator}` : ticket.userId;
       const createdAt = new Date(ticket.createdAt);
@@ -85,6 +90,7 @@ export class TicketManager {
 
       const embed = new EmbedBuilder()
         .setTitle('Your ticket has been closed')
+        .setColor(embedColor)
         .addFields(
           { name: 'Ticket', value: `${(channel as TextChannel).name} (#${ticket.id})`, inline: true },
           { name: 'Topic', value: `${openerName}`, inline: true },
