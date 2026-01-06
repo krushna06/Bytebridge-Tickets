@@ -17,7 +17,13 @@ import {
   deleteTicketRow,
   createPanel,
   deletePanel,
-  deleteFeedback
+  deleteFeedback,
+  updatePanelMessage,
+  getPanelById,
+  createCategory,
+  listCategories,
+  deleteCategory,
+  getCategoryById
 } from '../lib/database';
 import { TicketManager } from '../structures/TicketManager';
 
@@ -163,13 +169,28 @@ function registerTicketRoutes(app: any, requireKey: any, ticketManager: TicketMa
   });
 }
 
-function registerTranscriptRoutes(app: any, requireKey: any) {
+function registerTranscriptRoutes(app: any, requireKey: any, ticketManager: TicketManager) {
   app.get('/api/transcript', requireKey, (req: any, res: any) => {
     const filepath = req.query.path as string;
     if (!filepath) return res.status(400).json({ error: 'missing path' });
     const abs = path.resolve(filepath);
     if (!fs.existsSync(abs)) return res.status(404).json({ error: 'not found' });
     res.download(abs);
+  });
+
+  app.get('/api/transcript-html', requireKey, (req: any, res: any) => {
+    const filepath = req.query.path as string;
+    if (!filepath) return res.status(400).json({ error: 'missing path' });
+    const abs = path.resolve(filepath);
+    if (!fs.existsSync(abs)) return res.status(404).json({ error: 'not found' });
+    try {
+      const content = fs.readFileSync(abs, 'utf8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(content);
+    } catch (err: any) {
+      console.error('Error reading transcript', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
   });
 
   app.get('/api/guilds/:guildId/transcripts', requireKey, (req: any, res: any) => {
@@ -180,18 +201,10 @@ function registerTranscriptRoutes(app: any, requireKey: any) {
       .map((t: any) => {
         const createdAt = Number(t.createdAt);
         const date = new Date(createdAt || Date.now()).toISOString();
-        let messages = 0;
-        try {
-          const content = fs.readFileSync(t.transcriptPath, 'utf8');
-          messages = content.split('\n').map(l => l.trim()).filter(Boolean).length;
-        } catch (e) {
-          messages = 0;
-        }
         return {
           id: String(t.id),
           ticketId: String(t.id),
           date,
-          messages,
           path: t.transcriptPath
         };
       });
@@ -199,7 +212,7 @@ function registerTranscriptRoutes(app: any, requireKey: any) {
   });
 }
 
-function registerPanelRoutes(app: any, requireKey: any) {
+function registerPanelRoutes(app: any, requireKey: any, ticketManager: TicketManager) {
   app.get('/api/guilds/:guildId/panels', requireKey, (req: any, res: any) => {
     const guildId = req.params.guildId;
     const panels = listPanels(guildId);
@@ -208,12 +221,53 @@ function registerPanelRoutes(app: any, requireKey: any) {
 
   app.post('/api/guilds/:guildId/panels', requireKey, (req: any, res: any) => {
     const guildId = req.params.guildId;
-    const { title } = req.body || {};
+    const { title, categoryIds } = req.body || {};
     try {
-      const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', [{ label: 'Create Ticket' }]);
+      if (!categoryIds || categoryIds.length === 0) {
+        return res.status(400).json({ error: 'At least one category is required' });
+      }
+      const buttons = categoryIds.map((catId: string) => {
+        const category = getCategoryById(Number(catId));
+        const label = category ? category.name : `Category ${catId}`;
+        const discordCategoryId = category ? category.discordCategoryId : null;
+        return { label, categoryId: discordCategoryId };
+      });
+      const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', buttons);
       res.json({ ok: true, id: panelId });
     } catch (err: any) {
       console.error('Error creating panel', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+
+  app.post('/api/guilds/:guildId/panels/:panelId/send', requireKey, async (req: any, res: any) => {
+    const panelId = Number(req.params.panelId);
+    const { channelId } = req.body || {};
+    try {
+      if (!channelId) {
+        return res.status(400).json({ error: 'channelId is required' });
+      }
+      const panel = getPanelById(panelId);
+      if (!panel) {
+        return res.status(404).json({ error: 'Panel not found' });
+      }
+      const channel = await ticketManager.client.channels.fetch(channelId) as any;
+      if (!channel || !channel.isTextBased || !channel.isTextBased()) {
+        return res.status(400).json({ error: 'Invalid text channel' });
+      }
+      const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+      const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
+      const row = new ActionRowBuilder<any>();
+      panel.buttons.slice(0, 5).forEach((b: any, idx: number) => {
+        const label = (b && (b.label || b)) || `Category ${idx + 1}`;
+        const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+        row.addComponents(btn as any);
+      });
+      const sent = await channel.send({ embeds: [embed], components: [row as any] });
+      updatePanelMessage(panel.id, channel.id, sent.id);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('Error sending panel', err);
       res.status(500).json({ error: err?.message || 'internal error' });
     }
   });
@@ -225,6 +279,74 @@ function registerPanelRoutes(app: any, requireKey: any) {
       res.json({ ok: true });
     } catch (err: any) {
       console.error('Error deleting panel', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+}
+
+function registerCategoryRoutes(app: any, requireKey: any) {
+  app.get('/api/guilds/:guildId/categories', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const categories = listCategories(guildId);
+    res.json(categories);
+  });
+
+  app.post('/api/guilds/:guildId/categories', requireKey, (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    const { name, discordCategoryId } = req.body || {};
+    try {
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Category name is required' });
+      }
+      const categoryId = createCategory(guildId, name.trim(), discordCategoryId || null);
+      res.json({ ok: true, id: categoryId });
+    } catch (err: any) {
+      console.error('Error creating category', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+
+  app.delete('/api/guilds/:guildId/categories/:categoryId', requireKey, (req: any, res: any) => {
+    const categoryId = Number(req.params.categoryId);
+    try {
+      deleteCategory(categoryId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('Error deleting category', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+}
+
+function registerChannelRoutes(app: any, requireKey: any, ticketManager: TicketManager) {
+  app.get('/api/guilds/:guildId/channels', requireKey, async (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    try {
+      const guild = await ticketManager.client.guilds.fetch(guildId);
+      if (!guild) return res.status(404).json({ error: 'Guild not found' });
+      const channels = await guild.channels.fetch();
+      const textChannels = channels
+        .filter((ch: any) => ch && ch.isTextBased && ch.isTextBased())
+        .map((ch: any) => ({ id: ch.id, name: ch.name }));
+      res.json(textChannels);
+    } catch (err: any) {
+      console.error('Error fetching channels', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
+  });
+
+  app.get('/api/guilds/:guildId/discord-categories', requireKey, async (req: any, res: any) => {
+    const guildId = req.params.guildId;
+    try {
+      const guild = await ticketManager.client.guilds.fetch(guildId);
+      if (!guild) return res.status(404).json({ error: 'Guild not found' });
+      const channels = await guild.channels.fetch();
+      const categories = channels
+        .filter((ch: any) => ch && ch.type === 4) // 4 = GUILD_CATEGORY
+        .map((ch: any) => ({ id: ch.id, name: ch.name }));
+      res.json(categories);
+    } catch (err: any) {
+      console.error('Error fetching Discord categories', err);
       res.status(500).json({ error: err?.message || 'internal error' });
     }
   });
@@ -351,8 +473,10 @@ export async function startBotApi(ticketManager: TicketManager) {
   registerSettingsRoutes(app, requireKey);
   registerOverviewRoutes(app, requireKey);
   registerTicketRoutes(app, requireKey, ticketManager);
-  registerTranscriptRoutes(app, requireKey);
-  registerPanelRoutes(app, requireKey);
+  registerTranscriptRoutes(app, requireKey, ticketManager);
+  registerCategoryRoutes(app, requireKey);
+  registerChannelRoutes(app, requireKey, ticketManager);
+  registerPanelRoutes(app, requireKey, ticketManager);
   registerFeedbackRoutes(app, requireKey);
   registerLogRoutes(app, requireKey);
   registerTranscriptFileRoute(app);

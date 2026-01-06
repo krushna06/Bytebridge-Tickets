@@ -5,12 +5,13 @@ import { Sidebar } from "@/components/sidebar"
 import { Home } from "@/components/pages/home"
 import { Settings } from "@/components/pages/settings"
 import { Tickets } from "@/components/pages/tickets"
+import { Categories } from "@/components/pages/categories"
 import { Panels } from "@/components/pages/panels"
 import { Transcripts } from "@/components/pages/transcripts"
 import { Feedbacks } from "@/components/pages/feedbacks"
 import { Logs } from "@/components/pages/logs"
 
-type Page = "home" | "settings" | "tickets" | "panels" | "transcripts" | "feedbacks" | "logs"
+type Page = "home" | "settings" | "tickets" | "categories" | "panels" | "transcripts" | "feedbacks" | "logs"
 
 export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState<Page>("home")
@@ -23,6 +24,8 @@ export default function Dashboard() {
         return <Settings />
       case "tickets":
         return <Tickets />
+      case "categories":
+        return <Categories />
       case "panels":
         return <Panels />
       case "transcripts":

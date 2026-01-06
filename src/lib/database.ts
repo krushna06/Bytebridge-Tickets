@@ -109,6 +109,15 @@ CREATE TABLE IF NOT EXISTS ticket_feedback (
   handledBy TEXT,
   createdAt INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guildId TEXT NOT NULL,
+  name TEXT NOT NULL,
+  discordCategoryId TEXT,
+  createdAt INTEGER NOT NULL,
+  UNIQUE(guildId, name)
+);
 `);
 
 try {
@@ -136,6 +145,14 @@ try {
   const cols2 = (info2 || []).map((c: any) => c.name);
   if (!cols2.includes('closedBy')) {
     db.prepare('ALTER TABLE tickets ADD COLUMN closedBy TEXT').run();
+  }
+} catch (e) { /* ignore */ }
+
+try {
+  const info3 = db.prepare("PRAGMA table_info(categories)").all();
+  const cols3 = (info3 || []).map((c: any) => c.name);
+  if (!cols3.includes('discordCategoryId')) {
+    db.prepare('ALTER TABLE categories ADD COLUMN discordCategoryId TEXT').run();
   }
 } catch (e) { /* ignore */ }
 
@@ -425,6 +442,37 @@ export function countOpenTicketsByGuild(guildId: string){
 
 export function deleteTicketRow(id: number) {
   const stmt = db.prepare('DELETE FROM tickets WHERE id = ?');
+  const info = stmt.run(id);
+  return Number((info as any).changes || 0);
+}
+
+export function createCategory(guildId: string, name: string, discordCategoryId?: string | null) {
+  const stmt = db.prepare('INSERT INTO categories (guildId, name, discordCategoryId, createdAt) VALUES (?, ?, ?, ?)');
+  const info = stmt.run(guildId, name, discordCategoryId || null, Date.now());
+  return Number((info as any).lastInsertRowid || info.lastInsertRowid);
+}
+
+export function listCategories(guildId: string) {
+  const stmt = db.prepare('SELECT * FROM categories WHERE guildId = ? ORDER BY createdAt DESC');
+  return stmt.all(guildId) as any[];
+}
+
+export function getCategoryById(id: number) {
+  const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
+  const row = stmt.get(id) as any | undefined;
+  return row ?? null;
+}
+
+export function updateCategory(id: number, updates: { name?: string; discordCategoryId?: string | null }) {
+  const keys = Object.keys(updates).filter(k => updates[k as keyof typeof updates] !== undefined);
+  if (!keys.length) return;
+  const set = keys.map(k => `${k} = @${k}`).join(', ');
+  const stmt = db.prepare(`UPDATE categories SET ${set} WHERE id = @id`);
+  (stmt as any).run({ ...updates, id });
+}
+
+export function deleteCategory(id: number) {
+  const stmt = db.prepare('DELETE FROM categories WHERE id = ?');
   const info = stmt.run(id);
   return Number((info as any).changes || 0);
 }

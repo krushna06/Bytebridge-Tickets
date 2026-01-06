@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Download, MessageSquare } from "lucide-react"
+import { Download, Eye, X } from "lucide-react"
 
 interface Transcript {
   id: string
   ticketId: string
   date: string
-  messages: number
   path: string
 }
 
 export function Transcripts() {
   const [items, setItems] = useState<Transcript[]>([])
+  const [viewingTranscript, setViewingTranscript] = useState<Transcript | null>(null)
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -45,6 +45,54 @@ export function Transcripts() {
     }
   }
 
+  if (viewingTranscript) {
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const params = new URLSearchParams()
+    params.set("path", viewingTranscript.path)
+    if (apiKey) params.set("apiKey", apiKey)
+    const transcriptUrl = `${apiBase}/api/transcript-html?${params.toString()}`
+
+    return (
+      <div className="p-8 space-y-8 h-screen flex flex-col">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Transcript Viewer</h1>
+            <p className="text-muted-foreground">Ticket #{viewingTranscript.ticketId}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="default"
+              onClick={() => handleDownload(viewingTranscript)}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setViewingTranscript(null)}
+              className="gap-2"
+            >
+              <X className="w-4 h-4" />
+              Close
+            </Button>
+          </div>
+        </div>
+
+        <Card className="discord-card flex-1 overflow-hidden">
+          <CardContent className="p-0 h-full">
+            <iframe
+              src={transcriptUrl}
+              className="w-full h-full border-0"
+              title="Transcript"
+            />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8 space-y-8">
       <div>
@@ -62,15 +110,25 @@ export function Transcripts() {
                   <p className="text-sm text-muted-foreground mt-1">
                     {new Date(transcript.date).toLocaleString()}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    {transcript.messages} messages
-                  </div>
                 </div>
-                <Button variant="default" className="gap-2 flex-shrink-0" onClick={() => handleDownload(transcript)}>
-                  <Download className="w-4 h-4" />
-                  Download
-                </Button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setViewingTranscript(transcript)}
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </Button>
+                  <Button
+                    variant="default"
+                    className="gap-2"
+                    onClick={() => handleDownload(transcript)}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
