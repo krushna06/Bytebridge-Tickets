@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, LineChart, Line } from "recharts"
+import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 type OverviewResponse = {
@@ -19,10 +19,25 @@ type StatItem = {
 function formatDuration(ms: number | null) {
   if (!ms || ms <= 0) return "N/A"
   const seconds = ms / 1000
-  const hours = seconds / 3600
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const minutes = seconds / 60
+  if (minutes < 60) return `${minutes.toFixed(1)}m`
+  const hours = minutes / 60
   if (hours < 24) return `${hours.toFixed(1)}h`
   const days = hours / 24
   return `${days.toFixed(1)}d`
+}
+
+function getDurationInBestUnit(ms: number | null): { value: number; unit: string } {
+  if (!ms || ms <= 0) return { value: 0, unit: "N/A" }
+  const seconds = ms / 1000
+  if (seconds < 60) return { value: parseFloat(seconds.toFixed(1)), unit: "s" }
+  const minutes = seconds / 60
+  if (minutes < 60) return { value: parseFloat(minutes.toFixed(1)), unit: "m" }
+  const hours = minutes / 60
+  if (hours < 24) return { value: parseFloat(hours.toFixed(1)), unit: "h" }
+  const days = hours / 24
+  return { value: parseFloat(days.toFixed(1)), unit: "d" }
 }
 
 export function Home() {
@@ -92,46 +107,50 @@ export function Home() {
 
       <Card className="discord-card">
         <CardHeader>
-          <CardTitle>Response & Resolve Time Trends</CardTitle>
+          <CardTitle>Time Metrics Comparison</CardTitle>
           <CardDescription>Average response and resolution times based on recent tickets</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={
-                  overview
-                    ? [
-                        {
-                          label: "Average",
-                          responseMinutes: overview.avgResponseMs ? overview.avgResponseMs / 60000 : 0,
-                          resolveMinutes: overview.avgResolveMs ? overview.avgResolveMs / 60000 : 0,
-                        },
-                      ]
-                    : []
-                }
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#40444b" />
-                <XAxis dataKey="label" stroke="#949ba4" />
-                <YAxis stroke="#949ba4" />
-                <Legend wrapperStyle={{ color: "#949ba4" }} />
-                <Line
-                  type="monotone"
-                  dataKey="responseMinutes"
-                  stroke="#5865f2"
-                  name="Response Time (minutes)"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="resolveMinutes"
-                  stroke="#3ba55d"
-                  name="Resolve Time (minutes)"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {overview ? (
+              <>
+                {(() => {
+                  const responseUnit = getDurationInBestUnit(overview.avgResponseMs)
+                  const resolveUnit = getDurationInBestUnit(overview.avgResolveMs)
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          {
+                            name: "Response Time",
+                            value: responseUnit.value,
+                          },
+                          {
+                            name: "Resolve Time",
+                            value: resolveUnit.value,
+                          },
+                        ]}
+                        margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#40444b" />
+                        <XAxis dataKey="name" stroke="#949ba4" />
+                        <YAxis stroke="#949ba4" label={{ value: `Time (${responseUnit.unit === resolveUnit.unit ? responseUnit.unit : 'mixed'})`, angle: -90, position: 'insideLeft' }} />
+                        <Bar
+                          dataKey="value"
+                          fill="#5865f2"
+                          name="Duration"
+                          radius={[8, 8, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )
+                })()}
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Loading chart data...
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
