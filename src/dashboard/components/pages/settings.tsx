@@ -11,7 +11,7 @@ export function Settings() {
   const [embedColor, setEmbedColor] = useState("#5865f2")
   const [embedFooter, setEmbedFooter] = useState("Support Team")
   const [claimEnabled, setClaimEnabled] = useState(true)
-  const [ticketChannel, setTicketChannel] = useState("")
+  const [staffRoles, setStaffRoles] = useState("")
   const [transcriptChannel, setTranscriptChannel] = useState("")
   const [feedbackChannel, setFeedbackChannel] = useState("")
   const [logsChannel, setLogsChannel] = useState("")
@@ -32,7 +32,7 @@ export function Settings() {
         if (typeof data.embedColor === "string") setEmbedColor(data.embedColor)
         if (typeof data.embedFooter === "string") setEmbedFooter(data.embedFooter)
         if (typeof data.claimEnabled === "boolean") setClaimEnabled(data.claimEnabled)
-        if (typeof data.ticketChannel === "string") setTicketChannel(data.ticketChannel)
+        if (typeof data.staffRoles === "string") setStaffRoles(data.staffRoles)
         if (typeof data.transcriptChannel === "string") setTranscriptChannel(data.transcriptChannel)
         if (typeof data.feedbackChannel === "string") setFeedbackChannel(data.feedbackChannel)
         if (typeof data.logsChannel === "string") setLogsChannel(data.logsChannel)
@@ -57,7 +57,7 @@ export function Settings() {
         embedColor,
         embedFooter,
         claimEnabled,
-        ticketChannel,
+        staffRoles,
         transcriptChannel,
         feedbackChannel,
         logsChannel,
@@ -139,13 +139,13 @@ export function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <Label htmlFor="ticket-channel">Ticket Channel</Label>
+              <Label htmlFor="staff-roles">Staff Roles</Label>
               <Input
-                id="ticket-channel"
+                id="staff-roles"
                 type="text"
-                value={ticketChannel}
-                onChange={(e) => setTicketChannel(e.target.value)}
-                placeholder="#channel-name"
+                value={staffRoles}
+                onChange={(e) => setStaffRoles(e.target.value)}
+                placeholder="Role IDs separated by commas (e.g., 123456789, 987654321)"
               />
             </div>
 

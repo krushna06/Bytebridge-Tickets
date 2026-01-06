@@ -34,11 +34,20 @@ const BOT_API_KEY = process.env.BOT_API_KEY || process.env.DASHBOARD_API_KEY || 
 function registerSettingsRoutes(app: any, requireKey: any) {
   app.get('/api/guilds/:guildId/settings', requireKey, (req: any, res: any) => {
     const s = getGuildSettings(req.params.guildId);
+    let staffRoles = '';
+    if (s && s.allowedRoles) {
+      try {
+        const parsed = JSON.parse(s.allowedRoles);
+        staffRoles = Array.isArray(parsed) ? parsed.join(',') : '';
+      } catch {
+        staffRoles = '';
+      }
+    }
     const out = {
       embedColor: s && s.embedColor ? s.embedColor : '#5865f2',
       embedFooter: s && s.embedFooter ? s.embedFooter : 'Support Team',
       claimEnabled: s && typeof s.claimEnabled !== 'undefined' ? !!s.claimEnabled : true,
-      ticketChannel: s && s.ticketChannelId ? s.ticketChannelId : '',
+      staffRoles,
       transcriptChannel: s && s.transcriptChannelId ? s.transcriptChannelId : '',
       feedbackChannel: s && s.feedbackChannelId ? s.feedbackChannelId : '',
       logsChannel: s && s.logsChannelId ? s.logsChannelId : ''
@@ -50,10 +59,20 @@ function registerSettingsRoutes(app: any, requireKey: any) {
     const guildId = req.params.guildId;
     const existing = getGuildSettings(guildId);
     const body = req.body || {};
+    
+    let allowedRoles = existing ? existing.allowedRoles : null;
+    if (body.staffRoles) {
+      const roleIds = body.staffRoles
+        .split(',')
+        .map((id: string) => id.trim())
+        .filter((id: string) => id.length > 0);
+      allowedRoles = roleIds.length ? JSON.stringify(roleIds) : null;
+    }
+    
     const toSave = {
       guildId,
       staffRoleId: existing ? existing.staffRoleId : null,
-      allowedRoles: existing ? existing.allowedRoles : null,
+      allowedRoles,
       categoryId: existing ? existing.categoryId : null,
       closedCategoryId: existing ? existing.closedCategoryId : null,
       claimEnabled: body.claimEnabled ? 1 : 0,
