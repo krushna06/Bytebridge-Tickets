@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import {
   getGuildSettings,
-  upsertGuildSettings,
+  upsertGuildSettings, 
   listTicketsForGuild,
   getTicketById,
   updateTicketRow,

@@ -35,7 +35,8 @@ export class TicketManager {
     }
 
     const settings = getGuildSettings(guild.id);
-    const embedColor = settings?.embedColor || '#5865f2';
+    const embedColor = settings?.embedColor ? parseInt(settings.embedColor.replace('#', ''), 16) : 0x5865f2;
+    const claimEnabled = settings ? !!settings.claimEnabled : true;
 
     const embed = new EmbedBuilder()
       .setTitle('New ticket')
@@ -43,17 +44,22 @@ export class TicketManager {
       .setColor(embedColor)
       .setTimestamp();
 
-    const claimButton = new ButtonBuilder()
-      .setCustomId(`ticket_claim:${ticketId}`)
-      .setLabel('Claim')
-      .setStyle(ButtonStyle.Primary);
+    const row = new ActionRowBuilder<ButtonBuilder>();
+
+    if (claimEnabled) {
+      const claimButton = new ButtonBuilder()
+        .setCustomId(`ticket_claim:${ticketId}`)
+        .setLabel('Claim')
+        .setStyle(ButtonStyle.Primary);
+      row.addComponents(claimButton);
+    }
 
     const closeButton = new ButtonBuilder()
       .setCustomId(`ticket_close:${ticketId}`)
       .setLabel('Close')
       .setStyle(ButtonStyle.Danger);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimButton, closeButton);
+    row.addComponents(closeButton);
 
     try {
       await (channel as TextChannel).send({ embeds: [embed], components: [row as any] });
@@ -78,7 +84,7 @@ export class TicketManager {
 
     try {
       const settings = getGuildSettings((channel as TextChannel).guild.id as string) || null;
-      const embedColor = settings?.embedColor || '#5865f2';
+      const embedColor = settings?.embedColor ? parseInt(settings.embedColor.replace('#', ''), 16) : 0x5865f2;
       const user = await this.client.users.fetch(ticket.userId).catch(() => null);
       const openerName = user ? `${user.username}#${user.discriminator}` : ticket.userId;
       const createdAt = new Date(ticket.createdAt);

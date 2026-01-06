@@ -135,7 +135,7 @@ client.on('interactionCreate', async (interaction: any) => {
                   } catch (e) {}
 
                   const fbEmbed = new EmbedBuilder()
-                    .setColor(gs.embedColor || '#5865f2')
+                    .setColor(gs.embedColor ? parseInt(gs.embedColor.replace('#', ''), 16) : 0x5865f2)
                     .setDescription(`${interaction.user.tag} reviewed ticket: [${linkText}](${transcriptLink}) ( ⭐ ${score}/5 )`)
                     .addFields({ name: 'Handled by', value: handledBy ? `<@${handledBy}>` : (ticketRec.closedBy ? `<@${ticketRec.closedBy}>` : 'Unknown') });
                   await (fc as any).send({ embeds: [fbEmbed] });

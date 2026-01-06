@@ -45,11 +45,11 @@ export function makeEmbed(desc: string, title?: string, guildId?: string) {
   const e = new EmbedBuilder().setDescription(desc);
   if (title) e.setTitle(title);
   
-  // Get embedColor from guild settings if guildId is provided
   if (guildId) {
     const settings = getGuildSettings(guildId);
     if (settings?.embedColor) {
-      e.setColor(settings.embedColor);
+      const colorNum = parseInt(settings.embedColor.replace('#', ''), 16);
+      e.setColor(colorNum);
     }
   }
   
