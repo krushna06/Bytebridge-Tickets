@@ -4,11 +4,12 @@
   "description": "Discord ticket bot with a dashboard API (TypeScript, discord.js)",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "npm run build && concurrently --raw \"node ./dist/index.js\" \"node ./dist/dashboard/server.js\"",
-    "start:dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "start:dev:all": "concurrently --raw \"ts-node-dev --respawn --transpile-only src/index.ts\" \"ts-node-dev --respawn --transpile-only src/dashboard/server.ts\"",
-    "start:dashboard": "ts-node-dev --respawn --transpile-only src/dashboard/server.ts",
+    "build": "tsc -p tsconfig.json && cd src/dashboard && npm run build",
+    "start": "npm run build && concurrently --raw \"node ./dist/index.js\" \"cd src/dashboard && npm run start\"",
+    "start:dev": "concurrently --raw \"ts-node-dev --respawn --transpile-only src/index.ts\" \"cd src/dashboard && npm run dev\"",
+    "dev:bot": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:dashboard": "cd src/dashboard && npm run dev",
+    "start:dashboard": "cd src/dashboard && npm run dev",
     "deploy-commands": "ts-node src/commands/deployCommands.ts",
     "lint": "eslint . --ext .ts"
   },

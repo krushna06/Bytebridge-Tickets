@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Trash2, Plus } from "lucide-react"
@@ -197,13 +196,15 @@ export function Categories() {
           <Card key={category.id}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <CardTitle>{category.name}</CardTitle>
-                  <CardDescription>
-                    Created at {new Date(category.createdAt).toLocaleString()}
-                    {category.discordCategoryId && (
-                      <span className="ml-2 text-blue-500">✓ Linked to Discord category</span>
-                    )}
+                  <CardDescription className="space-y-2 mt-2">
+                    <div>Created at {new Date(category.createdAt).toLocaleString()}</div>
+                    <div className="flex gap-3">
+                      <span className={category.discordCategoryId ? "text-emerald-600" : "text-muted-foreground"}>
+                        Linked to Discord category
+                      </span>
+                    </div>
                   </CardDescription>
                 </div>
                 <Button

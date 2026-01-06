@@ -276,13 +276,15 @@ export function Panels() {
           <Card key={panel.id}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <CardTitle>{panel.title}</CardTitle>
-                  <CardDescription>
-                    Created at {new Date(panel.createdAt).toLocaleString()}
-                    {panel.channelId && panel.messageId && (
-                      <span className="ml-2 text-green-500">✓ Posted</span>
-                    )}
+                  <CardDescription className="space-y-2 mt-2">
+                    <div>Created at {new Date(panel.createdAt).toLocaleString()}</div>
+                    <div>
+                      <span className={panel.channelId && panel.messageId ? "text-emerald-600" : "text-muted-foreground"}>
+                        Posted
+                      </span>
+                    </div>
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">

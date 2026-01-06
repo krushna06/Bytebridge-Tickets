@@ -385,6 +385,7 @@ function registerFeedbackRoutes(app: any, requireKey: any) {
 function registerLogRoutes(app: any, requireKey: any) {
   app.get('/api/guilds/:guildId/logs', requireKey, (req: any, res: any) => {
     const guildId = req.params.guildId;
+    const count = Math.min(Number(req.query.count) || 100, 500); // Max 500 logs
     const tickets = listTicketsForGuild(guildId) as any[];
     const feedbacks = listFeedbackForGuild(guildId) as any[];
     type LogItem = { id: string; type: 'info' | 'success' | 'error'; action: string; details: string; timestamp: number };
@@ -420,7 +421,7 @@ function registerLogRoutes(app: any, requireKey: any) {
     }
 
     logs.sort((a, b) => b.timestamp - a.timestamp);
-    const limited = logs.slice(0, 100).map(l => ({
+    const limited = logs.slice(0, count).map(l => ({
       id: l.id,
       type: l.type,
       action: l.action,
@@ -429,6 +430,41 @@ function registerLogRoutes(app: any, requireKey: any) {
     }));
 
     res.json(limited);
+  });
+
+  app.post('/api/guilds/:guildId/logs/purge', requireKey, (req: any, res: any) => {
+    try {
+      const guildId = req.params.guildId;
+      const tickets = listTicketsForGuild(guildId) as any[];
+      const feedbacks = listFeedbackForGuild(guildId) as any[];
+      
+      let deletedCount = 0;
+      
+      // Delete all tickets
+      for (const t of tickets) {
+        try {
+          deleteTicketRow(t.id);
+          deletedCount++;
+        } catch (e) {
+          console.warn(`Failed to delete ticket ${t.id}`, e);
+        }
+      }
+      
+      // Delete all feedbacks
+      for (const f of feedbacks) {
+        try {
+          deleteFeedback(f.id);
+          deletedCount++;
+        } catch (e) {
+          console.warn(`Failed to delete feedback ${f.id}`, e);
+        }
+      }
+      
+      res.json({ ok: true, deletedCount });
+    } catch (err: any) {
+      console.error('Error purging logs', err);
+      res.status(500).json({ error: err?.message || 'internal error' });
+    }
   });
 }
 
@@ -460,7 +496,8 @@ function registerInternalRoutes(app: any, requireKey: any, ticketManager: Ticket
 
 export async function startBotApi(ticketManager: TicketManager) {
   const app = express();
-  app.use(cors({ origin: 'http://localhost:3002' }));
+  const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+  app.use(cors({ origin: dashboardUrl }));
   app.use(bodyParser.json());
 
   const requireKey = (req: any, res: any, next: any) => {
