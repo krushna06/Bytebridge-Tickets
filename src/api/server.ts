@@ -291,9 +291,20 @@ function registerPanelRoutes(app: any, requireKey: any, ticketManager: TicketMan
     }
   });
 
-  app.delete('/api/guilds/:guildId/panels/:panelId', requireKey, (req: any, res: any) => {
+  app.delete('/api/guilds/:guildId/panels/:panelId', requireKey, async (req: any, res: any) => {
     const panelId = Number(req.params.panelId);
     try {
+      const panel = getPanelById(panelId);
+      if (panel && panel.channelId && panel.messageId) {
+        try {
+          const channel = await ticketManager.client.channels.fetch(panel.channelId) as any;
+          if (channel && channel.isTextBased && channel.isTextBased()) {
+            await channel.messages.delete(panel.messageId);
+          }
+        } catch (err: any) {
+          console.warn(`Failed to delete panel message from Discord: ${err?.message}`);
+        }
+      }
       deletePanel(panelId);
       res.json({ ok: true });
     } catch (err: any) {
