@@ -93,11 +93,13 @@ CREATE TABLE IF NOT EXISTS panels (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   guildId TEXT NOT NULL,
   title TEXT,
+  description TEXT,
   creatorId TEXT,
   buttons TEXT NOT NULL,
   createdAt INTEGER NOT NULL,
   channelId TEXT,
-  messageId TEXT
+  messageId TEXT,
+  embedColor TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_feedback (
@@ -153,6 +155,17 @@ try {
   const cols3 = (info3 || []).map((c: any) => c.name);
   if (!cols3.includes('discordCategoryId')) {
     db.prepare('ALTER TABLE categories ADD COLUMN discordCategoryId TEXT').run();
+  }
+} catch (e) { /* ignore */ }
+
+try {
+  const info4 = db.prepare("PRAGMA table_info(panels)").all();
+  const cols4 = (info4 || []).map((c: any) => c.name);
+  if (!cols4.includes('embedColor')) {
+    db.prepare('ALTER TABLE panels ADD COLUMN embedColor TEXT').run();
+  }
+  if (!cols4.includes('description')) {
+    db.prepare('ALTER TABLE panels ADD COLUMN description TEXT').run();
   }
 } catch (e) { /* ignore */ }
 
@@ -317,10 +330,10 @@ export function listTags(guildId: string){
 
 type PanelButton = { label: string; categoryId?: string | null };
 
-export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>){
+export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>, embedColor?: string | null, description?: string | null){
   const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null } : { label: b.label, categoryId: b.categoryId ?? null });
-  const stmt = db.prepare('INSERT INTO panels (guildId,title,creatorId,buttons,createdAt) VALUES (?,?,?,?,?)');
-  const info = stmt.run(guildId, title || null, creatorId || null, JSON.stringify(normalized), Date.now());
+  const stmt = db.prepare('INSERT INTO panels (guildId,title,description,creatorId,buttons,createdAt,embedColor) VALUES (?,?,?,?,?,?,?)');
+  const info = stmt.run(guildId, title || null, description || null, creatorId || null, JSON.stringify(normalized), Date.now(), embedColor || null);
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
 }
 
@@ -374,6 +387,14 @@ export function deletePanel(panelId: number){
   const stmt = db.prepare('DELETE FROM panels WHERE id = ?');
   const info = stmt.run(panelId);
   return Number((info as any).changes || 0);
+}
+
+export function updatePanel(panelId: number, updates: { title?: string; description?: string; embedColor?: string | null; buttons?: string }) {
+  const keys = Object.keys(updates).filter(k => updates[k as keyof typeof updates] !== undefined);
+  if (!keys.length) return;
+  const set = keys.map(k => `${k} = @${k}`).join(', ');
+  const stmt = db.prepare(`UPDATE panels SET ${set} WHERE id = @id`);
+  (stmt as any).run({ ...updates, id: panelId });
 }
 
 export function updateTicketRow(id: number, patch: Partial<TicketRow>) {
