@@ -26,7 +26,7 @@ import {
   countTicketsByGuild,
   countOpenTicketsByGuild
 } from './lib/database';
-import { startBotApi } from './api/server';
+import { startBotApi, setClient } from './api/server';
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) throw new Error('DISCORD_TOKEN not set in env');
@@ -40,6 +40,8 @@ client.login(token).catch(err => {
   console.error('Failed to login to Discord:', err);
   process.exit(1);
 });
+
+setClient(client);
 
 const ticketManager = new TicketManager(client);
 

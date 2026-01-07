@@ -13,10 +13,17 @@ import { registerChannelRoutes } from './routes/channels';
 import { registerFeedbackRoutes } from './routes/feedback';
 import { registerLogRoutes } from './routes/logs';
 import { registerInternalRoutes } from './routes/internal';
+import { registerMemberRoutes } from './routes/members';
 
 dotenv.config();
 
 const BOT_API_KEY = process.env.BOT_API_KEY || process.env.DASHBOARD_API_KEY || '';
+
+export let client: any;
+
+export function setClient(discordClient: any) {
+  client = discordClient;
+}
 
 export async function startBotApi(ticketManager: TicketManager) {
   const app = express();
@@ -40,6 +47,7 @@ export async function startBotApi(ticketManager: TicketManager) {
   registerPanelRoutes(app, requireKey, ticketManager);
   registerFeedbackRoutes(app, requireKey);
   registerLogRoutes(app, requireKey);
+  registerMemberRoutes(app, requireKey);
   registerTranscriptFileRoute(app);
 
   const port = Number(process.env.BOT_API_PORT || 3001);

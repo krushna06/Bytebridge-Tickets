@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { SessionProvider } from "./providers"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -20,8 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased dark`} suppressHydrationWarning>
-        {children}
-        <Analytics />
+        <SessionProvider>
+          {children}
+          <Analytics />
+        </SessionProvider>
       </body>
     </html>
   )
