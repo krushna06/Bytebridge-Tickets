@@ -205,9 +205,9 @@ export function Tickets() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Ticket #{t.id}</CardTitle>
-                  <CardDescription>
+                  <CardDescription className="flex items-center gap-3 mt-2">
                     <Badge className={getStatusColor(t.status)}>{t.status}</Badge>
-                    <span className="ml-2">User {t.userId}</span>
+                    <span>User {t.userId}</span>
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -248,10 +248,16 @@ export function Tickets() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Created at {new Date(t.createdAt).toLocaleString()}
-                {t.closedAt ? ` • Closed at ${new Date(t.closedAt).toLocaleString()}` : ""}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Created at {new Date(t.createdAt).toLocaleString()}
+                </p>
+                {t.closedAt && (
+                  <p className="text-sm text-muted-foreground">
+                    Closed at {new Date(t.closedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
