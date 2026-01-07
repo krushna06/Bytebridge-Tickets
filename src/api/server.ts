@@ -534,33 +534,7 @@ function registerLogRoutes(app: any, requireKey: any) {
 
   app.post('/api/guilds/:guildId/logs/purge', requireKey, (req: any, res: any) => {
     try {
-      const guildId = req.params.guildId;
-      const tickets = listTicketsForGuild(guildId) as any[];
-      const feedbacks = listFeedbackForGuild(guildId) as any[];
-      
-      let deletedCount = 0;
-      
-      // Delete all tickets
-      for (const t of tickets) {
-        try {
-          deleteTicketRow(t.id);
-          deletedCount++;
-        } catch (e) {
-          console.warn(`Failed to delete ticket ${t.id}`, e);
-        }
-      }
-      
-      // Delete all feedbacks
-      for (const f of feedbacks) {
-        try {
-          deleteFeedback(f.id);
-          deletedCount++;
-        } catch (e) {
-          console.warn(`Failed to delete feedback ${f.id}`, e);
-        }
-      }
-      
-      res.json({ ok: true, deletedCount });
+      res.json({ ok: true, deletedCount: 0, message: 'Logs are generated from tickets and feedbacks. To delete data, delete tickets or feedbacks individually.' });
     } catch (err: any) {
       console.error('Error purging logs', err);
       res.status(500).json({ error: err?.message || 'internal error' });
