@@ -67,8 +67,9 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE TABLE IF NOT EXISTS staff_profiles (
   guildId TEXT NOT NULL,
   userId TEXT NOT NULL,
-  displayName TEXT,
   bio TEXT,
+  timezone TEXT DEFAULT 'UTC',
+  activeHours TEXT,
   PRIMARY KEY (guildId, userId)
 );
 
@@ -166,6 +167,36 @@ try {
   }
   if (!cols4.includes('description')) {
     db.prepare('ALTER TABLE panels ADD COLUMN description TEXT').run();
+  }
+} catch (e) { /* ignore */ }
+
+try {
+  const info5 = db.prepare("PRAGMA table_info(staff_profiles)").all();
+  const cols5 = (info5 || []).map((c: any) => c.name);
+  if (!cols5.includes('timezone')) {
+    db.prepare('ALTER TABLE staff_profiles ADD COLUMN timezone TEXT DEFAULT "UTC"').run();
+  }
+  if (!cols5.includes('activeHours')) {
+    db.prepare('ALTER TABLE staff_profiles ADD COLUMN activeHours TEXT').run();
+  }
+  if (cols5.includes('displayName')) {
+    try {
+      db.prepare(`
+        CREATE TABLE staff_profiles_new (
+          guildId TEXT NOT NULL,
+          userId TEXT NOT NULL,
+          bio TEXT,
+          timezone TEXT DEFAULT 'UTC',
+          activeHours TEXT,
+          PRIMARY KEY (guildId, userId)
+        )
+      `).run();
+      db.prepare('INSERT INTO staff_profiles_new SELECT guildId, userId, bio, timezone, activeHours FROM staff_profiles').run();
+      db.prepare('DROP TABLE staff_profiles').run();
+      db.prepare('ALTER TABLE staff_profiles_new RENAME TO staff_profiles').run();
+    } catch (e) {
+      console.warn('Failed to migrate staff_profiles table:', e);
+    }
   }
 } catch (e) { /* ignore */ }
 
@@ -285,14 +316,14 @@ export function deleteNote(id: number, guildId: string){
   return Number((info as any).changes || 0);
 }
 
-export function createOrUpdateProfile(guildId: string, userId: string, displayName?: string, bio?: string){
-  const stmt = db.prepare(`INSERT INTO staff_profiles (guildId,userId,displayName,bio) VALUES (@guildId,@userId,@displayName,@bio)
-    ON CONFLICT(guildId,userId) DO UPDATE SET displayName=excluded.displayName, bio=excluded.bio`);
-  stmt.run({ guildId, userId, displayName, bio });
+export function createOrUpdateProfile(guildId: string, userId: string, bio?: string, timezone?: string, activeHours?: string){
+  const stmt = db.prepare(`INSERT INTO staff_profiles (guildId,userId,bio,timezone,activeHours) VALUES (@guildId,@userId,@bio,@timezone,@activeHours)
+    ON CONFLICT(guildId,userId) DO UPDATE SET bio=excluded.bio, timezone=excluded.timezone, activeHours=excluded.activeHours`);
+  stmt.run({ guildId, userId, bio, timezone, activeHours });
 }
 
 export function getProfile(guildId: string, userId: string){
-  type ProfileRow = { guildId: string; userId: string; displayName?: string | null; bio?: string | null };
+  type ProfileRow = { guildId: string; userId: string; bio?: string | null; timezone?: string | null; activeHours?: string | null };
   const stmt = db.prepare('SELECT * FROM staff_profiles WHERE guildId = ? AND userId = ?');
   const row = stmt.get(guildId, userId) as ProfileRow | undefined;
   return row ?? null;

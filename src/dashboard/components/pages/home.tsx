@@ -9,6 +9,8 @@ type OverviewResponse = {
   openTickets: number
   avgResolveMs: number | null
   avgResponseMs: number | null
+  totalClosed?: number
+  totalClaimed?: number
 }
 
 type StatItem = {
@@ -45,7 +47,7 @@ export function Home() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || "http://localhost:3001"
     const guildId = process.env.NEXT_PUBLIC_GUILD_ID
     if (!guildId) {
       setLoading(false)
@@ -59,8 +61,10 @@ export function Home() {
     })
       .then((res) => res.json())
       .then((data: OverviewResponse) => {
+        console.log("Overview data:", data)
         setOverview(data)
       })
+      .catch((err) => console.error("Failed to fetch overview:", err))
       .finally(() => setLoading(false))
   }, [])
 
@@ -74,12 +78,12 @@ export function Home() {
       value: overview ? overview.openTickets : loading ? "…" : 0,
     },
     {
-      label: "Avg Response Time",
-      value: overview ? formatDuration(overview.avgResponseMs) : loading ? "…" : "N/A",
+      label: "Total Closed",
+      value: overview ? overview.totalClosed ?? 0 : loading ? "…" : 0,
     },
     {
-      label: "Avg Resolve Time",
-      value: overview ? formatDuration(overview.avgResolveMs) : loading ? "…" : "N/A",
+      label: "Total Claimed",
+      value: overview ? overview.totalClaimed ?? 0 : loading ? "…" : 0,
     },
   ]
 

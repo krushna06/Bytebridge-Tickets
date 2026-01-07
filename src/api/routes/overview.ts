@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { listTicketsForGuild, countTicketsByGuild, countOpenTicketsByGuild } from '../../lib/database';
+import { listTicketsForGuild, countTicketsByGuild, countOpenTicketsByGuild, getLeaderboard } from '../../lib/database';
 
 export function registerOverviewRoutes(app: any, requireKey: any) {
   app.get('/api/guilds/:guildId/overview', requireKey, (req: any, res: any) => {
@@ -7,6 +7,7 @@ export function registerOverviewRoutes(app: any, requireKey: any) {
     const totalTickets = countTicketsByGuild(guildId);
     const openTickets = countOpenTicketsByGuild(guildId);
     const tickets = listTicketsForGuild(guildId);
+    
     const closed = tickets.filter((t: any) => t.closedAt && t.closedAt > 0);
     const resolveDurations = closed
       .map((t: any) => Number(t.closedAt) - Number(t.createdAt))
@@ -40,11 +41,17 @@ export function registerOverviewRoutes(app: any, requireKey: any) {
       ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length)
       : null;
 
+    const leaderboard = getLeaderboard(guildId, 100);
+    const totalClosed = leaderboard.reduce((sum: number, staff: any) => sum + (staff.closedCount || 0), 0);
+    const totalClaimed = leaderboard.reduce((sum: number, staff: any) => sum + (staff.claimedCount || 0), 0);
+
     res.json({
       totalTickets,
       openTickets,
       avgResolveMs,
-      avgResponseMs
+      avgResponseMs,
+      totalClosed,
+      totalClaimed
     });
   });
 }

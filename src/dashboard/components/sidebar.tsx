@@ -1,11 +1,11 @@
 "use client"
 
-import { Home, Settings, Ticket, LayoutGrid, MessageSquare, History, Tag, LogOut } from "lucide-react"
+import { Home, Settings, Ticket, LayoutGrid, MessageSquare, History, Tag, LogOut, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 
-type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "feedbacks" | "logs"
+type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "feedbacks" | "logs" | "profile"
 
 interface SidebarProps {
   currentPage: Page
@@ -14,6 +14,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: "home" as Page, label: "Home", icon: Home },
+  { id: "profile" as Page, label: "My Profile", icon: User },
   { id: "settings" as Page, label: "Settings", icon: Settings },
   { id: "tickets" as Page, label: "Tickets", icon: Ticket },
   { id: "categories" as Page, label: "Categories", icon: Tag },
