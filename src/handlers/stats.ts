@@ -140,5 +140,45 @@ export const viewprofile = async function (interaction: ChatInputCommandInteract
   const user = interaction.options.getUser('user', true);
   const profile = getProfile(interaction.guildId!, user.id) as any | null;
   if (!profile) return interaction.editReply({ embeds: [makeEmbed('No profile.', undefined, interaction.guildId || undefined)] });
-  return interaction.editReply({ embeds: [makeEmbed(`Profile for ${user.tag}: ${profile.displayName || ''} - ${profile.bio || ''}`, undefined, interaction.guildId || undefined)] });
+
+  const db = require('../lib/database').default;
+  
+  const statsStmt = db.prepare('SELECT closedCount, claimedCount FROM staff_stats WHERE guildId = ? AND userId = ?');
+  const stats = statsStmt.get(interaction.guildId!, user.id) as any;
+
+  const responseTimeStmt = db.prepare(`
+    SELECT AVG(t.closedAt - t.createdAt) as avgResponseTime
+    FROM tickets t
+    INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+    WHERE t.guildId = ? AND tm.claimedBy = ? AND t.closedAt IS NOT NULL
+  `);
+  const responseTimeResult = responseTimeStmt.get(interaction.guildId!, user.id) as any;
+
+  const resolveTimeStmt = db.prepare(`
+    SELECT AVG(t.closedAt - t.createdAt) as avgResolveTime
+    FROM tickets t
+    WHERE t.guildId = ? AND t.closedBy = ? AND t.closedAt IS NOT NULL
+  `);
+  const resolveTimeResult = resolveTimeStmt.get(interaction.guildId!, user.id) as any;
+
+  const closedCount = stats?.closedCount || 0;
+  const claimedCount = stats?.claimedCount || 0;
+  const avgResponseMs = responseTimeResult?.avgResponseTime || null;
+  const avgResolveMs = resolveTimeResult?.avgResolveTime || null;
+
+  const lines = [
+    `**Profile for ${user.tag}**`,
+    profile.displayName ? `Display Name: ${profile.displayName}` : '',
+    profile.bio ? `Bio: ${profile.bio}` : '',
+    profile.timezone ? `Timezone: ${profile.timezone}` : '',
+    profile.activeHours ? `Active Hours: ${profile.activeHours}` : '',
+    '',
+    `**Statistics**`,
+    `Tickets Closed: ${closedCount}`,
+    `Tickets Claimed: ${claimedCount}`,
+    `Avg Response Time: ${formatMs(avgResponseMs)}`,
+    `Avg Resolve Time: ${formatMs(avgResolveMs)}`
+  ].filter(Boolean).join('\n');
+
+  return interaction.editReply({ embeds: [makeEmbed(lines, undefined, interaction.guildId || undefined)] });
 };
