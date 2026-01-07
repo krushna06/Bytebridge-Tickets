@@ -15,6 +15,7 @@ import { registerLogRoutes } from './routes/logs';
 import { registerInternalRoutes } from './routes/internal';
 import { registerMemberRoutes } from './routes/members';
 import { registerProfileRoutes } from './routes/profile';
+import { registerLeaderboardRoutes, setLeaderboardClient } from './routes/leaderboard';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ export let client: any;
 
 export function setClient(discordClient: any) {
   client = discordClient;
+  setLeaderboardClient(discordClient);
 }
 
 export async function startBotApi(ticketManager: TicketManager) {
@@ -50,6 +52,7 @@ export async function startBotApi(ticketManager: TicketManager) {
   registerLogRoutes(app, requireKey);
   registerMemberRoutes(app, requireKey);
   registerProfileRoutes(app, requireKey);
+  registerLeaderboardRoutes(app, requireKey);
   registerTranscriptFileRoute(app);
 
   const port = Number(process.env.BOT_API_PORT || 3001);

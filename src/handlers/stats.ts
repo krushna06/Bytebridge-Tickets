@@ -5,10 +5,79 @@ import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const leaderboard = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
-  const rows = getLeaderboard(interaction.guildId!);
-  if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No stats yet.', undefined, interaction.guildId || undefined)] });
-  const out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - closed: ${r.closedCount || 0}, claimed: ${r.claimedCount || 0}`).join('\n');
-  return interaction.editReply({ embeds: [makeEmbed(`Leaderboard:\n${out}`, undefined, interaction.guildId || undefined)] });
+  const sortBy = interaction.options.getString('sort') || 'resolved';
+  const limit = interaction.options.getInteger('limit') || 10;
+  const guildId = interaction.guildId!;
+
+  const db = require('../lib/database').default;
+
+  let query = '';
+  let title = '';
+
+  switch (sortBy) {
+    case 'resolved':
+      query = `
+        SELECT ss.userId, ss.closedCount as value
+        FROM staff_stats ss
+        WHERE ss.guildId = ?
+        ORDER BY ss.closedCount DESC
+        LIMIT ?
+      `;
+      title = 'Leaderboard - Total Tickets Resolved';
+      break;
+    case 'response':
+      query = `
+        SELECT tm.claimedBy as userId, AVG(t.closedAt - t.createdAt) as value
+        FROM tickets t
+        INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+        WHERE t.guildId = ? AND t.closedAt IS NOT NULL AND tm.claimedBy IS NOT NULL
+        GROUP BY tm.claimedBy
+        ORDER BY value ASC
+        LIMIT ?
+      `;
+      title = 'Leaderboard - Avg Response Time (Lower is Better)';
+      break;
+    case 'resolve':
+      query = `
+        SELECT t.closedBy as userId, AVG(t.closedAt - t.createdAt) as value
+        FROM tickets t
+        WHERE t.guildId = ? AND t.closedAt IS NOT NULL AND t.closedBy IS NOT NULL
+        GROUP BY t.closedBy
+        ORDER BY value ASC
+        LIMIT ?
+      `;
+      title = 'Leaderboard - Avg Resolve Time (Lower is Better)';
+      break;
+    case 'feedback':
+      query = `
+        SELECT tf.handledBy as userId, AVG(tf.score) as value
+        FROM ticket_feedback tf
+        WHERE tf.guildId = ?
+        GROUP BY tf.handledBy
+        ORDER BY value DESC
+        LIMIT ?
+      `;
+      title = 'Leaderboard - Avg Feedback Score';
+      break;
+  }
+
+  const stmt = db.prepare(query);
+  const rows = stmt.all(guildId, limit) as any[];
+
+  if (!rows.length) {
+    return interaction.editReply({ embeds: [makeEmbed('No stats yet.', undefined, guildId)] });
+  }
+
+  let out = '';
+  if (sortBy === 'feedback') {
+    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${(r.value || 0).toFixed(1)}/5`).join('\n');
+  } else if (sortBy === 'response' || sortBy === 'resolve') {
+    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${formatMs(r.value)}`).join('\n');
+  } else {
+    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${r.value || 0} tickets`).join('\n');
+  }
+
+  return interaction.editReply({ embeds: [makeEmbed(`${title}\n\n${out}`, undefined, guildId)] });
 };
 
 export const setprofile = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
