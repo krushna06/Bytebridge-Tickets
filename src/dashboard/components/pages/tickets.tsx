@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Lock, Eye, X, Download } from "lucide-react"
+import { Trash2, Lock, Eye, X, Download, Star } from "lucide-react"
 
 interface LiveTicket {
   id: number
@@ -15,8 +15,18 @@ interface LiveTicket {
   transcriptPath?: string | null
 }
 
+interface Feedback {
+  id: string
+  ticketId: string
+  userId: string
+  score: number
+  handledBy: string | null
+  date: string
+}
+
 export function Tickets() {
   const [liveTickets, setLiveTickets] = useState<LiveTicket[]>([])
+  const [feedbacks, setFeedbacks] = useState<Map<number, Feedback>>(new Map())
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [viewingTranscriptId, setViewingTranscriptId] = useState<number | null>(null)
@@ -47,8 +57,30 @@ export function Tickets() {
       .finally(() => setLoading(false))
   }
 
+  const fetchFeedbacks = () => {
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
+    if (!guildId) return
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const headers: HeadersInit = {}
+    if (apiKey) headers["X-API-KEY"] = apiKey
+    fetch(`${apiBase}/api/guilds/${guildId}/feedbacks`, {
+      headers,
+    })
+      .then((res) => res.json())
+      .then((data: Feedback[]) => {
+        const feedbackMap = new Map<number, Feedback>()
+        data.forEach((f) => {
+          feedbackMap.set(Number(f.ticketId), f)
+        })
+        setFeedbacks(feedbackMap)
+      })
+      .catch((err) => console.error("Failed to fetch feedbacks:", err))
+  }
+
   useEffect(() => {
     fetchTickets()
+    fetchFeedbacks()
   }, [])
 
   const handleCloseTicket = async (ticketId: number) => {
@@ -74,8 +106,6 @@ export function Tickets() {
     }
   }
 
-
-
   const handleDeleteTicket = async (ticketId: number) => {
     if (!confirm("Are you sure you want to delete this ticket?")) return
     setActionLoading(ticketId)
@@ -96,6 +126,26 @@ export function Tickets() {
       console.error("Error deleting ticket:", err)
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) return
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const headers: HeadersInit = {}
+    if (apiKey) headers["X-API-KEY"] = apiKey
+    try {
+      const res = await fetch(`${apiBase}/api/guilds/${guildId}/feedbacks/${feedbackId}`, {
+        method: "DELETE",
+        headers,
+      })
+      if (res.ok) {
+        fetchFeedbacks()
+      }
+    } catch (err) {
+      console.error("Error deleting feedback:", err)
     }
   }
 
@@ -248,14 +298,44 @@ export function Tickets() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Created at {new Date(t.createdAt).toLocaleString()}
-                </p>
-                {t.closedAt && (
+              <div className="space-y-3">
+                <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">
-                    Closed at {new Date(t.closedAt).toLocaleString()}
+                    Created at {new Date(t.createdAt).toLocaleString()}
                   </p>
+                  {t.closedAt && (
+                    <p className="text-sm text-muted-foreground">
+                      Closed at {new Date(t.closedAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+                {feedbacks.has(t.id) && (
+                  <div className="pt-2 border-t border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const feedback = feedbacks.get(t.id)!
+                          return (
+                            <Star
+                              key={i}
+                              className={`w-4 h-4 ${
+                                i < feedback.score ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                              }`}
+                            />
+                          )
+                        })}
+                      </div>
+                      <span className="text-sm text-muted-foreground">{feedbacks.get(t.id)?.score}/5</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteFeedback(feedbacks.get(t.id)!.id)}
+                        className="ml-auto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </CardContent>

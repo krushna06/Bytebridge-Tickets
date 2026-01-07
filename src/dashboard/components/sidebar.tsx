@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 
-type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "feedbacks" | "logs" | "profile"
+type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "logs" | "profile"
 
 interface SidebarProps {
   currentPage: Page
@@ -19,7 +19,6 @@ const menuItems = [
   { id: "tickets" as Page, label: "Tickets", icon: Ticket },
   { id: "categories" as Page, label: "Categories", icon: Tag },
   { id: "panels" as Page, label: "Panels", icon: LayoutGrid },
-  { id: "feedbacks" as Page, label: "Feedbacks", icon: MessageSquare },
   { id: "logs" as Page, label: "Logs", icon: History },
 ]
 

@@ -7,11 +7,10 @@ import { Settings } from "@/components/pages/settings"
 import { Tickets } from "@/components/pages/tickets"
 import { Categories } from "@/components/pages/categories"
 import { Panels } from "@/components/pages/panels"
-import { Feedbacks } from "@/components/pages/feedbacks"
 import { Logs } from "@/components/pages/logs"
 import { Profile } from "@/components/pages/profile"
 
-type Page = "home" | "settings" | "tickets" | "categories" | "panels" | "feedbacks" | "logs" | "profile"
+type Page = "home" | "settings" | "tickets" | "categories" | "panels" | "logs" | "profile"
 
 export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState<Page>("home")
@@ -28,8 +27,6 @@ export default function Dashboard() {
         return <Categories />
       case "panels":
         return <Panels />
-      case "feedbacks":
-        return <Feedbacks />
       case "logs":
         return <Logs />
       case "profile":
