@@ -1,6 +1,7 @@
 import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings } from '../lib/database';
 import { saveChannelTranscript } from '../lib/transcript';
+import { getTranscriptBaseUrl } from '../lib/urlHelper';
 
 export class TicketManager {
   client: Client;
@@ -108,10 +109,7 @@ export class TicketManager {
         )
         .setTimestamp(closedAt);
 
-      const host = process.env.TRANSCRIPTS_HOST || process.env.HOSTNAME || 'localhost';
-      const port = process.env.TRANSCRIPTS_PORT || process.env.PORT || process.env.BOT_API_PORT || '3000';
-      const proto = process.env.TRANSCRIPTS_PROTOCOL || process.env.BOT_API_PROTOCOL || 'http';
-      const base = `${proto}://${host}:${port}`;
+      const base = getTranscriptBaseUrl();
       const filename = transcriptPath ? (require('path').basename(transcriptPath)) : null;
       const transcriptLink = filename ? `${base}/transcripts/${encodeURIComponent(filename)}` : null;
 

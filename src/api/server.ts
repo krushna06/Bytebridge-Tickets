@@ -28,7 +28,7 @@ export function setClient(discordClient: any) {
 
 export async function startBotApi(ticketManager: TicketManager) {
   const app = express();
-  const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:3000';
+  const dashboardUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   app.use(cors({ origin: dashboardUrl }));
   app.use(bodyParser.json());
 
@@ -55,7 +55,7 @@ export async function startBotApi(ticketManager: TicketManager) {
   const port = Number(process.env.BOT_API_PORT || 3001);
   return new Promise<void>((resolve) => {
     app.listen(port, () => {
-      console.log(`Bot internal API listening on ${port}`);
+      console.log(`Bot internal API listening on port ${port}`);
       resolve();
     });
   });

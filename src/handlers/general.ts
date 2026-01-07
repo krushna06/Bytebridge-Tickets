@@ -3,6 +3,7 @@ import { getTag, listTicketsForUser } from '../lib/database';
 import path from 'path';
 import { Ctx, makeEmbed } from './common';
 import commandsList from '../commands';
+import { getTranscriptBaseUrl } from '../lib/urlHelper';
 
 export const help = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   try {
@@ -43,10 +44,7 @@ export const tickets = async function (interaction: ChatInputCommandInteraction,
   const user = interaction.options.getUser('user', true);
   const rows = listTicketsForUser(interaction.guildId!, user.id);
   if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No tickets found.', undefined, interaction.guildId || undefined)] });
-  const host = process.env.TRANSCRIPTS_HOST || process.env.HOSTNAME || 'localhost';
-  const port = process.env.TRANSCRIPTS_PORT || process.env.PORT || process.env.BOT_API_PORT || '3000';
-  const proto = process.env.TRANSCRIPTS_PROTOCOL || process.env.BOT_API_PROTOCOL || 'http';
-  const base = `${proto}://${host}:${port}`;
+  const base = getTranscriptBaseUrl();
 
   const list = rows.map((r: any) => {
     const filename = r.transcriptPath ? path.basename(r.transcriptPath) : null;

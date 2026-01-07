@@ -27,6 +27,7 @@ import {
   countOpenTicketsByGuild
 } from './lib/database';
 import { startBotApi, setClient } from './api/server';
+import { getTranscriptBaseUrl } from './lib/urlHelper';
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) throw new Error('DISCORD_TOKEN not set in env');
@@ -118,10 +119,7 @@ client.on('interactionCreate', async (interaction: any) => {
             const handledBy = (meta && meta.claimedBy) ? meta.claimedBy : (ticketRec.closedBy || null);
             try { addFeedback(ticketRec.guildId, ticketId, interaction.user.id, score, handledBy); } catch (e) { console.warn('Failed to add feedback to DB', e); }
 
-            const host = process.env.TRANSCRIPTS_HOST || process.env.HOSTNAME || 'localhost';
-            const port = process.env.TRANSCRIPTS_PORT || process.env.PORT || process.env.BOT_API_PORT || '3000';
-            const proto = process.env.TRANSCRIPTS_PROTOCOL || process.env.BOT_API_PROTOCOL || 'http';
-            const base = `${proto}://${host}:${port}`;
+            const base = getTranscriptBaseUrl();
             const filename = ticketRec.transcriptPath ? (require('path').basename(ticketRec.transcriptPath)) : null;
             const transcriptLink = filename ? `${base}/transcripts/${encodeURIComponent(filename)}` : `${base}/transcripts/`;
 
