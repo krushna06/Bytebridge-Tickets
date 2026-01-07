@@ -1,10 +1,10 @@
 "use client"
 
-import { Home, Settings, Ticket, LayoutGrid, FileText, MessageSquare, History, Tag } from "lucide-react"
+import { Home, Settings, Ticket, LayoutGrid, MessageSquare, History, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "transcripts" | "feedbacks" | "logs"
+type Page = "home" | "settings" | "tickets" | "panels" | "categories" | "feedbacks" | "logs"
 
 interface SidebarProps {
   currentPage: Page
@@ -17,7 +17,6 @@ const menuItems = [
   { id: "tickets" as Page, label: "Tickets", icon: Ticket },
   { id: "categories" as Page, label: "Categories", icon: Tag },
   { id: "panels" as Page, label: "Panels", icon: LayoutGrid },
-  { id: "transcripts" as Page, label: "Transcripts", icon: FileText },
   { id: "feedbacks" as Page, label: "Feedbacks", icon: MessageSquare },
   { id: "logs" as Page, label: "Logs", icon: History },
 ]

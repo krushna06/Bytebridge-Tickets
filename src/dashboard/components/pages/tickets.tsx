@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Lock } from "lucide-react"
+import { Trash2, Lock, Eye, X, Download } from "lucide-react"
 
 interface LiveTicket {
   id: number
@@ -12,12 +12,14 @@ interface LiveTicket {
   status: string
   createdAt: number
   closedAt?: number | null
+  transcriptPath?: string | null
 }
 
 export function Tickets() {
   const [liveTickets, setLiveTickets] = useState<LiveTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [viewingTranscriptId, setViewingTranscriptId] = useState<number | null>(null)
 
   const fetchTickets = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -37,6 +39,7 @@ export function Tickets() {
           status: String(r.status),
           createdAt: Number(r.createdAt),
           closedAt: typeof r.closedAt === "number" ? r.closedAt : null,
+          transcriptPath: r.transcriptPath || null,
         }))
         setLiveTickets(mapped)
       })
@@ -107,6 +110,86 @@ export function Tickets() {
     }
   }
 
+  const handleDownloadTranscript = (ticket: LiveTicket) => {
+    if (!ticket.transcriptPath) return
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const params = new URLSearchParams()
+    params.set("path", ticket.transcriptPath)
+    if (apiKey) params.set("apiKey", apiKey)
+    const url = `${apiBase}/api/transcript?${params.toString()}`
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank")
+    }
+  }
+
+  if (viewingTranscriptId !== null) {
+    const ticket = liveTickets.find(t => t.id === viewingTranscriptId)
+    if (!ticket || !ticket.transcriptPath) {
+      return (
+        <div className="p-8 space-y-8">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-foreground">Transcript Not Available</h1>
+            <Button
+              variant="outline"
+              onClick={() => setViewingTranscriptId(null)}
+              className="gap-2"
+            >
+              <X className="w-4 h-4" />
+              Back
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const params = new URLSearchParams()
+    params.set("path", ticket.transcriptPath)
+    if (apiKey) params.set("apiKey", apiKey)
+    const transcriptUrl = `${apiBase}/api/transcript-html?${params.toString()}`
+
+    return (
+      <div className="p-8 space-y-8 h-screen flex flex-col">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Transcript Viewer</h1>
+            <p className="text-muted-foreground">Ticket #{ticket.id}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="default"
+              onClick={() => handleDownloadTranscript(ticket)}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setViewingTranscriptId(null)}
+              className="gap-2"
+            >
+              <X className="w-4 h-4" />
+              Back
+            </Button>
+          </div>
+        </div>
+
+        <Card className="discord-card flex-1 overflow-hidden">
+          <CardContent className="p-0 h-full">
+            <iframe
+              src={transcriptUrl}
+              className="w-full h-full border-0"
+              title="Transcript"
+            />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="p-8 space-y-8">
       <div>
@@ -138,6 +221,17 @@ export function Tickets() {
                     >
                       <Lock className="w-4 h-4" />
                       Close
+                    </Button>
+                  )}
+                  {t.transcriptPath && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setViewingTranscriptId(t.id)}
+                      className="gap-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View
                     </Button>
                   )}
                   <Button
