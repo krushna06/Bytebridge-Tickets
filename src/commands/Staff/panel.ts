@@ -10,6 +10,7 @@ export default {
         .setDescription('Create a ticket panel')
         .addStringOption(o => o.setName('title').setDescription('Panel title').setRequired(false))
         .addChannelOption(o => o.setName('post_channel').setDescription('Post the panel to this channel immediately').setRequired(false))
+        .addBooleanOption(o => o.setName('include_stats').setDescription('Include a stats embed below the panel').setRequired(false))
         .addStringOption(o => o.setName('button1').setDescription('Button label 1').setRequired(false))
         .addChannelOption(o => o.setName('button1_category').setDescription('Category for button1').setRequired(false))
         .addStringOption(o => o.setName('button2').setDescription('Button label 2').setRequired(false))

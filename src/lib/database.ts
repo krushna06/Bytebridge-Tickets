@@ -100,7 +100,9 @@ CREATE TABLE IF NOT EXISTS panels (
   createdAt INTEGER NOT NULL,
   channelId TEXT,
   messageId TEXT,
-  embedColor TEXT
+  embedColor TEXT,
+  includeStats INTEGER DEFAULT 0,
+  statsMessageId TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_feedback (
@@ -167,6 +169,12 @@ try {
   }
   if (!cols4.includes('description')) {
     db.prepare('ALTER TABLE panels ADD COLUMN description TEXT').run();
+  }
+  if (!cols4.includes('includeStats')) {
+    db.prepare('ALTER TABLE panels ADD COLUMN includeStats INTEGER DEFAULT 0').run();
+  }
+  if (!cols4.includes('statsMessageId')) {
+    db.prepare('ALTER TABLE panels ADD COLUMN statsMessageId TEXT').run();
   }
 } catch (e) { /* ignore */ }
 
@@ -361,10 +369,10 @@ export function listTags(guildId: string){
 
 type PanelButton = { label: string; categoryId?: string | null };
 
-export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>, embedColor?: string | null, description?: string | null){
+export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>, embedColor?: string | null, description?: string | null, includeStats?: boolean){
   const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null } : { label: b.label, categoryId: b.categoryId ?? null });
-  const stmt = db.prepare('INSERT INTO panels (guildId,title,description,creatorId,buttons,createdAt,embedColor) VALUES (?,?,?,?,?,?,?)');
-  const info = stmt.run(guildId, title || null, description || null, creatorId || null, JSON.stringify(normalized), Date.now(), embedColor || null);
+  const stmt = db.prepare('INSERT INTO panels (guildId,title,description,creatorId,buttons,createdAt,embedColor,includeStats) VALUES (?,?,?,?,?,?,?,?)');
+  const info = stmt.run(guildId, title || null, description || null, creatorId || null, JSON.stringify(normalized), Date.now(), embedColor || null, includeStats ? 1 : 0);
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
 }
 
@@ -530,3 +538,20 @@ export function deleteCategory(id: number) {
 }
 
 export default db;
+
+export function updatePanelStatsMessage(panelId: number, statsMessageId: string){
+  const stmt = db.prepare('UPDATE panels SET statsMessageId = @statsMessageId WHERE id = @panelId');
+  stmt.run({ statsMessageId, panelId });
+}
+
+export function getPanelsWithStats(guildId: string){
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null; includeStats: number; statsMessageId?: string | null };
+  const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? AND includeStats = 1');
+  const rows = stmt.all(guildId) as PanelRow[];
+  return rows.map(row => {
+    let parsed: any;
+    try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
+    const buttons: any[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+    return { ...row, buttons };
+  });
+}

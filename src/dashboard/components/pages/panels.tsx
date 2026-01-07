@@ -16,6 +16,8 @@ interface Panel {
   buttons: { label: string; categoryId?: string | null }[]
   channelId?: string | null
   messageId?: string | null
+  includeStats?: number
+  statsMessageId?: string | null
 }
 
 interface Category {
@@ -42,6 +44,7 @@ export function Panels() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [sendingPanelId, setSendingPanelId] = useState<string | null>(null)
   const [selectedChannel, setSelectedChannel] = useState<string>("")
+  const [includeStats, setIncludeStats] = useState(false)
 
   const fetchPanels = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -69,6 +72,8 @@ export function Panels() {
             : [],
           channelId: p.channelId || null,
           messageId: p.messageId || null,
+          includeStats: p.includeStats || 0,
+          statsMessageId: p.statsMessageId || null,
         }))
         setPanels(mapped)
       })
@@ -196,11 +201,12 @@ export function Panels() {
       const res = await fetch(`${apiBase}/api/guilds/${guildId}/panels/${panelId}/send`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ channelId: selectedChannel }),
+        body: JSON.stringify({ channelId: selectedChannel, includeStats }),
       })
       if (res.ok) {
         fetchPanels()
         setSelectedChannel("")
+        setIncludeStats(false)
       }
     } catch (err) {
       console.error("Error sending panel:", err)
@@ -513,6 +519,15 @@ export function Panels() {
                       </option>
                     ))}
                   </select>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeStats}
+                      onChange={(e) => setIncludeStats(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Include stats embed below panel</span>
+                  </label>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -524,7 +539,10 @@ export function Panels() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSendingPanelId(null)}
+                      onClick={() => {
+                        setSendingPanelId(null)
+                        setIncludeStats(false)
+                      }}
                     >
                       Cancel
                     </Button>

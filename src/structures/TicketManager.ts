@@ -2,6 +2,7 @@ import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChann
 import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings } from '../lib/database';
 import { saveChannelTranscript } from '../lib/transcript';
 import { getTranscriptBaseUrl } from '../lib/urlHelper';
+import { updateStatsEmbeds } from '../lib/statsUpdater';
 
 export class TicketManager {
   client: Client;
@@ -68,6 +69,8 @@ export class TicketManager {
       const welcome = `Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : '');
       await (channel as TextChannel).send({ content: welcome });
     }
+
+    updateStatsEmbeds(this.client, guild.id).catch(err => console.error('Failed to update stats embeds:', err));
 
     return { ticketId, channel };
   }
@@ -180,13 +183,19 @@ export class TicketManager {
       }
     }, 5000);
 
+    updateStatsEmbeds(this.client, ticket.guildId).catch(err => console.error('Failed to update stats embeds:', err));
+
     return { transcriptPath, ticketId: ticket.id as number };
   }
 
   async claimTicket(channelId: string, claimerId: string) {
     const channel = await this.client.channels.fetch(channelId);
     if (!channel || !channel.isTextBased()) throw new Error('Channel not found or not text');
+    const ticket = getTicketByChannel(channelId);
     await (channel as TextChannel).send(`<@${claimerId}> has claimed this ticket.`);
+    if (ticket) {
+      updateStatsEmbeds(this.client, ticket.guildId).catch(err => console.error('Failed to update stats embeds:', err));
+    }
   }
 }
 

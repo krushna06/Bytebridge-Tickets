@@ -1,6 +1,136 @@
 import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel } from '../lib/database';
+import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel, updatePanelStatsMessage, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
+import fs from 'fs';
+
+function formatMs(ms: number | null) {
+  if (ms === null || typeof ms === 'undefined') return 'N/A';
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.floor(ms / 1000) % 60;
+  const m = Math.floor(ms / (1000 * 60)) % 60;
+  const h = Math.floor(ms / (1000 * 60 * 60));
+  const parts: string[] = [];
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  if (s) parts.push(`${s}s`);
+  return parts.join(' ') || '0s';
+}
+
+export function createStatsEmbed(guildId: string, embedColor?: string): EmbedBuilder {
+  const total = countTicketsByGuild(guildId);
+  const open = countOpenTicketsByGuild(guildId);
+  
+  const tickets = listTicketsForGuild(guildId);
+  const closed = tickets.filter(t => t.closedAt && t.closedAt > 0);
+  const resolveDurations = closed.map(t => (t.closedAt! - t.createdAt)).filter(d => typeof d === 'number' && d >= 0);
+  const avgResolveMs = resolveDurations.length ? Math.round(resolveDurations.reduce((a, b) => a + b, 0) / resolveDurations.length) : null;
+
+  const responseDurations: number[] = [];
+  for (const t of tickets) {
+    if (!t.transcriptPath) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(t.transcriptPath, 'utf8');
+    } catch (e) {
+      continue;
+    }
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
+      if (!m) continue;
+      const ts = Date.parse(m[1]);
+      const authorId = m[2];
+      if (authorId === String(t.userId)) continue;
+      const respMs = ts - t.createdAt;
+      if (respMs >= 0) responseDurations.push(respMs);
+      break;
+    }
+  }
+  const avgResponseMs = responseDurations.length ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length) : null;
+
+  const db = require('../lib/database').default;
+  const feedbackStmt = db.prepare('SELECT AVG(score) as avgScore FROM ticket_feedback WHERE guildId = ?');
+  const feedbackResult = feedbackStmt.get(guildId) as any;
+  const avgFeedback = feedbackResult?.avgScore || 0;
+
+  const feedbackCountStmt = db.prepare('SELECT COUNT(*) as count FROM ticket_feedback WHERE guildId = ?');
+  const feedbackCountResult = feedbackCountStmt.get(guildId) as any;
+  const feedbackCount = feedbackCountResult?.count || 0;
+
+  const color = embedColor ? parseInt(embedColor.replace('#', ''), 16) : 0x5865f2;
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Support Statistics')
+    .setColor(color)
+    .addFields(
+      { name: 'Total Tickets', value: String(total), inline: true },
+      { name: 'Open Tickets', value: String(open), inline: true },
+      { name: 'Closed Tickets', value: String(closed.length), inline: true },
+      { name: 'Avg Response Time', value: formatMs(avgResponseMs), inline: true },
+      { name: 'Avg Resolve Time', value: formatMs(avgResolveMs), inline: true },
+      { name: 'Avg Feedback', value: feedbackCount > 0 ? `${(avgFeedback).toFixed(2)}/5 (${feedbackCount} ratings)` : 'No ratings yet', inline: true }
+    );
+
+  return embed;
+}
+
+function createStatsEmbedInternal(guildId: string, embedColor?: string): EmbedBuilder {
+  const total = countTicketsByGuild(guildId);
+  const open = countOpenTicketsByGuild(guildId);
+  
+  const tickets = listTicketsForGuild(guildId);
+  const closed = tickets.filter(t => t.closedAt && t.closedAt > 0);
+  const resolveDurations = closed.map(t => (t.closedAt! - t.createdAt)).filter(d => typeof d === 'number' && d >= 0);
+  const avgResolveMs = resolveDurations.length ? Math.round(resolveDurations.reduce((a, b) => a + b, 0) / resolveDurations.length) : null;
+
+  const responseDurations: number[] = [];
+  for (const t of tickets) {
+    if (!t.transcriptPath) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(t.transcriptPath, 'utf8');
+    } catch (e) {
+      continue;
+    }
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
+      if (!m) continue;
+      const ts = Date.parse(m[1]);
+      const authorId = m[2];
+      if (authorId === String(t.userId)) continue;
+      const respMs = ts - t.createdAt;
+      if (respMs >= 0) responseDurations.push(respMs);
+      break;
+    }
+  }
+  const avgResponseMs = responseDurations.length ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length) : null;
+
+  const db = require('../lib/database').default;
+  const feedbackStmt = db.prepare('SELECT AVG(score) as avgScore FROM ticket_feedback WHERE guildId = ?');
+  const feedbackResult = feedbackStmt.get(guildId) as any;
+  const avgFeedback = feedbackResult?.avgScore || 0;
+
+  const feedbackCountStmt = db.prepare('SELECT COUNT(*) as count FROM ticket_feedback WHERE guildId = ?');
+  const feedbackCountResult = feedbackCountStmt.get(guildId) as any;
+  const feedbackCount = feedbackCountResult?.count || 0;
+
+  const color = embedColor ? parseInt(embedColor.replace('#', ''), 16) : 0x5865f2;
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Support Statistics')
+    .setColor(color)
+    .addFields(
+      { name: 'Total Tickets', value: String(total), inline: true },
+      { name: 'Open Tickets', value: String(open), inline: true },
+      { name: 'Closed Tickets', value: String(closed.length), inline: true },
+      { name: 'Avg Response Time', value: formatMs(avgResponseMs), inline: true },
+      { name: 'Avg Resolve Time', value: formatMs(avgResolveMs), inline: true },
+      { name: 'Avg Feedback', value: feedbackCount > 0 ? `${(avgFeedback).toFixed(2)}/5 (${feedbackCount} ratings)` : 'No ratings yet', inline: true }
+    );
+
+  return embed;
+}
 
 export const panel = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
@@ -10,6 +140,7 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
   try { sub = interaction.options.getSubcommand(); } catch (e) { sub = 'create'; }
   if (sub === 'create') {
     const title = interaction.options.getString('title') || null;
+    const includeStats = interaction.options.getBoolean('include_stats') || false;
     const buttons: Array<{ label: string; categoryId?: string | null }> = [];
     for (let i = 1; i <= 5; i++) {
       const b = interaction.options.getString(`button${i}` as any);
@@ -17,7 +148,7 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
       if (b && b.trim()) buttons.push({ label: b.trim(), categoryId: cat && cat.id ? cat.id : null });
     }
     if (!buttons.length) return interaction.editReply({ embeds: [makeEmbed('Please provide at least one button label (up to 5).', undefined, interaction.guildId || undefined)] });
-    const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons as any);
+    const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons as any, undefined, undefined, includeStats);
     const postChannel = interaction.options.getChannel('post_channel') as any;
     if (postChannel && postChannel.isTextBased && postChannel.isTextBased()) {
       const panel = getPanelById(panelId as number);
@@ -31,15 +162,21 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
         });
         const sent = await postChannel.send({ embeds: [embed], components: [row as any] });
         updatePanelMessage(panel.id, postChannel.id, sent.id);
+
+        if (includeStats) {
+          const statsEmbed = createStatsEmbedInternal(interaction.guildId!, (panel as any).embedColor || undefined);
+          const statsSent = await postChannel.send({ embeds: [statsEmbed] });
+          updatePanelStatsMessage(panel.id, statsSent.id);
+        }
       }
-      return interaction.editReply({ embeds: [makeEmbed(`Panel created and posted to ${postChannel}.`, undefined, interaction.guildId || undefined)] });
+      return interaction.editReply({ embeds: [makeEmbed(`Panel created and posted to ${postChannel}.${includeStats ? ' Stats embed included.' : ''}`, undefined, interaction.guildId || undefined)] });
     }
     return interaction.editReply({ embeds: [makeEmbed(`Panel created with id ${panelId}. Run /sendpanel to post it to a channel.`, undefined, interaction.guildId || undefined)] });
   }
   if (sub === 'list') {
     const panels = listPanels(interaction.guildId!);
     if (!panels.length) return interaction.editReply({ embeds: [makeEmbed('No panels found for this guild.', undefined, interaction.guildId || undefined)] });
-    const out = panels.map((p: any) => `#${p.id} - ${p.title || 'Untitled'} - posted in <#${p.channelId}> message ${p.messageId || 'N/A'}`).join('\n');
+    const out = panels.map((p: any) => `#${p.id} - ${p.title || 'Untitled'} - posted in <#${p.channelId}> message ${p.messageId || 'N/A'}${p.includeStats ? ' (with stats)' : ''}`).join('\n');
     return interaction.editReply({ embeds: [makeEmbed(`Panels:\n${out}`, undefined, interaction.guildId || undefined)] });
   }
 
@@ -60,6 +197,9 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
         const ch = await ctx.client.channels.fetch(panel.channelId as string) as any;
         if (ch && ch.isTextBased && ch.isTextBased()) {
           try { const msg = await ch.messages.fetch(panel.messageId as string); if (msg) await msg.delete(); } catch (e) {}
+          if (panel.statsMessageId) {
+            try { const statsMsg = await ch.messages.fetch(panel.statsMessageId as string); if (statsMsg) await statsMsg.delete(); } catch (e) {}
+          }
         }
       } catch (e) {}
     }

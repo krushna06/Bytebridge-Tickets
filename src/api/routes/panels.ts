@@ -66,10 +66,10 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
               const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
               const updatedPanel = getPanelById(panelId);
               const embed = new EmbedBuilder()
-                .setTitle(updatedPanel?.title || 'Ticket Panel')
-                .setDescription(updatedPanel?.description || 'Click a button below to open a ticket.');
-              if (updatedPanel?.embedColor) {
-                embed.setColor(updatedPanel.embedColor as any);
+                .setTitle((updatedPanel as any)?.title || 'Ticket Panel')
+                .setDescription((updatedPanel as any)?.description || 'Click a button below to open a ticket.');
+              if ((updatedPanel as any)?.embedColor) {
+                embed.setColor((updatedPanel as any).embedColor as any);
               }
               const row = new ActionRowBuilder<any>();
               const buttons = updatedPanel?.buttons || [];
@@ -95,7 +95,7 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
 
   app.post('/api/guilds/:guildId/panels/:panelId/send', requireKey, async (req: any, res: any) => {
     const panelId = Number(req.params.panelId);
-    const { channelId } = req.body || {};
+    const { channelId, includeStats } = req.body || {};
     try {
       if (!channelId) {
         return res.status(400).json({ error: 'channelId is required' });
@@ -110,10 +110,10 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
       }
       const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
       const embed = new EmbedBuilder()
-        .setTitle(panel.title || 'Ticket Panel')
-        .setDescription(panel.description || 'Click a button below to open a ticket.');
-      if (panel.embedColor) {
-        embed.setColor(panel.embedColor as any);
+        .setTitle((panel as any).title || 'Ticket Panel')
+        .setDescription((panel as any).description || 'Click a button below to open a ticket.');
+      if ((panel as any).embedColor) {
+        embed.setColor((panel as any).embedColor as any);
       }
       const row = new ActionRowBuilder<any>();
       panel.buttons.slice(0, 5).forEach((b: any, idx: number) => {
@@ -123,6 +123,16 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
       });
       const sent = await channel.send({ embeds: [embed], components: [row as any] });
       updatePanelMessage(panel.id, channel.id, sent.id);
+
+      if (includeStats) {
+        const { updateStatsEmbeds } = await import('../../lib/statsUpdater');
+        const { updatePanelStatsMessage } = await import('../../lib/database');
+        const statsEmbed = (await import('../../handlers/panels')).createStatsEmbed(req.params.guildId, (panel as any).embedColor || undefined);
+        const statsSent = await channel.send({ embeds: [statsEmbed] });
+        updatePanelStatsMessage(panel.id, statsSent.id);
+        updateStatsEmbeds(ticketManager.client, req.params.guildId).catch((err: any) => console.error('Failed to update stats embeds:', err));
+      }
+
       res.json({ ok: true });
     } catch (err: any) {
       console.error('Error sending panel', err);
