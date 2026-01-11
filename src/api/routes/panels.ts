@@ -150,6 +150,13 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
           const channel = await ticketManager.client.channels.fetch(panel.channelId) as any;
           if (channel && channel.isTextBased && channel.isTextBased()) {
             await channel.messages.delete(panel.messageId);
+            if ((panel as any).statsMessageId) {
+              try {
+                await channel.messages.delete((panel as any).statsMessageId);
+              } catch (err: any) {
+                console.warn(`Failed to delete stats message from Discord: ${err?.message}`);
+              }
+            }
           }
         } catch (err: any) {
           console.warn(`Failed to delete panel message from Discord: ${err?.message}`);

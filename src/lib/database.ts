@@ -383,7 +383,7 @@ export function createPanel(guildId: string, title: string | null, creatorId: st
 }
 
 export function getLatestPanelForGuild(guildId: string){
-  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null; embedColor?: string | null; includeStats?: number; statsMessageId?: string | null };
   const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? ORDER BY createdAt DESC LIMIT 1');
   const row = stmt.get(guildId) as PanelRow | undefined;
   if (!row) return null;
@@ -395,7 +395,7 @@ export function getLatestPanelForGuild(guildId: string){
 }
 
 export function getPanelById(id: number){
-  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null; embedColor?: string | null; includeStats?: number; statsMessageId?: string | null };
   const stmt = db.prepare('SELECT * FROM panels WHERE id = ?');
   const row = stmt.get(id) as PanelRow | undefined;
   if (!row) return null;
@@ -411,7 +411,7 @@ export function updatePanelMessage(panelId: number, channelId: string, messageId
 }
 
 export function getPanelByChannel(channelId: string){
-  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null; embedColor?: string | null; includeStats?: number; statsMessageId?: string | null };
   const stmt = db.prepare('SELECT * FROM panels WHERE channelId = ? LIMIT 1');
   const row = stmt.get(channelId) as PanelRow | undefined;
   if (!row) return null;
@@ -422,7 +422,7 @@ export function getPanelByChannel(channelId: string){
 }
 
 export function listPanels(guildId: string){
-  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null };
+  type PanelRow = { id: number; guildId: string; title?: string | null; creatorId?: string | null; buttons: string; createdAt: number; channelId?: string | null; messageId?: string | null; embedColor?: string | null; includeStats?: number; statsMessageId?: string | null };
   const stmt = db.prepare('SELECT * FROM panels WHERE guildId = ? ORDER BY createdAt DESC');
   const rows = stmt.all(guildId) as PanelRow[];
   return rows.map(r => ({ ...r, buttons: (() => { try { return JSON.parse(r.buttons); } catch { return []; } })() }));
@@ -546,7 +546,7 @@ export function deleteCategory(id: number) {
 export default db;
 
 export function updatePanelStatsMessage(panelId: number, statsMessageId: string){
-  const stmt = db.prepare('UPDATE panels SET statsMessageId = @statsMessageId WHERE id = @panelId');
+  const stmt = db.prepare('UPDATE panels SET statsMessageId = @statsMessageId, includeStats = 1 WHERE id = @panelId');
   stmt.run({ statsMessageId, panelId });
 }
 

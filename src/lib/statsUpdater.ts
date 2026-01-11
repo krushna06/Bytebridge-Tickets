@@ -1,6 +1,5 @@
 import { Client, EmbedBuilder } from 'discord.js';
 import { getPanelsWithStats, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild } from './database';
-import fs from 'fs';
 
 function formatMs(ms: number | null) {
   if (ms === null || typeof ms === 'undefined') return 'N/A';
@@ -24,30 +23,17 @@ function createStatsEmbed(guildId: string, embedColor?: string): EmbedBuilder {
   const resolveDurations = closed.map(t => (t.closedAt! - t.createdAt)).filter(d => typeof d === 'number' && d >= 0);
   const avgResolveMs = resolveDurations.length ? Math.round(resolveDurations.reduce((a, b) => a + b, 0) / resolveDurations.length) : null;
 
-  const responseDurations: number[] = [];
-  for (const t of tickets) {
-    if (!t.transcriptPath) continue;
-    let content: string;
-    try {
-      content = fs.readFileSync(t.transcriptPath, 'utf8');
-    } catch (e) {
-      continue;
-    }
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
-      if (!m) continue;
-      const ts = Date.parse(m[1]);
-      const authorId = m[2];
-      if (authorId === String(t.userId)) continue;
-      const respMs = ts - t.createdAt;
-      if (respMs >= 0) responseDurations.push(respMs);
-      break;
-    }
-  }
-  const avgResponseMs = responseDurations.length ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length) : null;
-
   const db = require('./database').default;
+  
+  const responseTimeStmt = db.prepare(`
+    SELECT AVG(t.closedAt - t.createdAt) as avgResponseTime
+    FROM tickets t
+    INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+    WHERE t.guildId = ? AND tm.claimedBy IS NOT NULL AND t.closedAt IS NOT NULL
+  `);
+  const responseTimeResult = responseTimeStmt.get(guildId) as any;
+  const avgResponseMs = responseTimeResult?.avgResponseTime ? Math.round(responseTimeResult.avgResponseTime) : null;
+
   const feedbackStmt = db.prepare('SELECT AVG(score) as avgScore FROM ticket_feedback WHERE guildId = ?');
   const feedbackResult = feedbackStmt.get(guildId) as any;
   const avgFeedback = feedbackResult?.avgScore || 0;
@@ -83,7 +69,7 @@ export async function updateStatsEmbeds(client: Client, guildId: string) {
 
       try {
         const channel = await client.channels.fetch(panel.channelId) as any;
-        if (!channel || !channel.isTextBased()) continue;
+        if (!channel || typeof channel.isTextBased !== 'function' || !channel.isTextBased()) continue;
 
         const message = await channel.messages.fetch(panel.statsMessageId);
         if (message) {

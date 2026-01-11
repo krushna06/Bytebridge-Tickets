@@ -25,30 +25,17 @@ export function createStatsEmbed(guildId: string, embedColor?: string): EmbedBui
   const resolveDurations = closed.map(t => (t.closedAt! - t.createdAt)).filter(d => typeof d === 'number' && d >= 0);
   const avgResolveMs = resolveDurations.length ? Math.round(resolveDurations.reduce((a, b) => a + b, 0) / resolveDurations.length) : null;
 
-  const responseDurations: number[] = [];
-  for (const t of tickets) {
-    if (!t.transcriptPath) continue;
-    let content: string;
-    try {
-      content = fs.readFileSync(t.transcriptPath, 'utf8');
-    } catch (e) {
-      continue;
-    }
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
-      if (!m) continue;
-      const ts = Date.parse(m[1]);
-      const authorId = m[2];
-      if (authorId === String(t.userId)) continue;
-      const respMs = ts - t.createdAt;
-      if (respMs >= 0) responseDurations.push(respMs);
-      break;
-    }
-  }
-  const avgResponseMs = responseDurations.length ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length) : null;
-
   const db = require('../lib/database').default;
+  
+  const responseTimeStmt = db.prepare(`
+    SELECT AVG(t.closedAt - t.createdAt) as avgResponseTime
+    FROM tickets t
+    INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+    WHERE t.guildId = ? AND tm.claimedBy IS NOT NULL AND t.closedAt IS NOT NULL
+  `);
+  const responseTimeResult = responseTimeStmt.get(guildId) as any;
+  const avgResponseMs = responseTimeResult?.avgResponseTime ? Math.round(responseTimeResult.avgResponseTime) : null;
+
   const feedbackStmt = db.prepare('SELECT AVG(score) as avgScore FROM ticket_feedback WHERE guildId = ?');
   const feedbackResult = feedbackStmt.get(guildId) as any;
   const avgFeedback = feedbackResult?.avgScore || 0;
@@ -83,30 +70,17 @@ function createStatsEmbedInternal(guildId: string, embedColor?: string): EmbedBu
   const resolveDurations = closed.map(t => (t.closedAt! - t.createdAt)).filter(d => typeof d === 'number' && d >= 0);
   const avgResolveMs = resolveDurations.length ? Math.round(resolveDurations.reduce((a, b) => a + b, 0) / resolveDurations.length) : null;
 
-  const responseDurations: number[] = [];
-  for (const t of tickets) {
-    if (!t.transcriptPath) continue;
-    let content: string;
-    try {
-      content = fs.readFileSync(t.transcriptPath, 'utf8');
-    } catch (e) {
-      continue;
-    }
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    for (const line of lines) {
-      const m = line.match(/^\[(.+?)\].*\((\d+)\):\s*(.*)$/);
-      if (!m) continue;
-      const ts = Date.parse(m[1]);
-      const authorId = m[2];
-      if (authorId === String(t.userId)) continue;
-      const respMs = ts - t.createdAt;
-      if (respMs >= 0) responseDurations.push(respMs);
-      break;
-    }
-  }
-  const avgResponseMs = responseDurations.length ? Math.round(responseDurations.reduce((a, b) => a + b, 0) / responseDurations.length) : null;
-
   const db = require('../lib/database').default;
+  
+  const responseTimeStmt = db.prepare(`
+    SELECT AVG(t.closedAt - t.createdAt) as avgResponseTime
+    FROM tickets t
+    INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+    WHERE t.guildId = ? AND tm.claimedBy IS NOT NULL AND t.closedAt IS NOT NULL
+  `);
+  const responseTimeResult = responseTimeStmt.get(guildId) as any;
+  const avgResponseMs = responseTimeResult?.avgResponseTime ? Math.round(responseTimeResult.avgResponseTime) : null;
+
   const feedbackStmt = db.prepare('SELECT AVG(score) as avgScore FROM ticket_feedback WHERE guildId = ?');
   const feedbackResult = feedbackStmt.get(guildId) as any;
   const avgFeedback = feedbackResult?.avgScore || 0;
@@ -226,6 +200,7 @@ export const sendpanel = async function (interaction: ChatInputCommandInteractio
   const channel = interaction.options.getChannel('channel') as any;
   if (!channel || !('isTextBased' in channel) || !channel.isTextBased()) return interaction.editReply({ embeds: [makeEmbed('Please provide a valid text channel.', undefined, interaction.guildId || undefined)] });
   const pid = interaction.options.getInteger('panel_id');
+  const includeStats = interaction.options.getBoolean('include_stats') || false;
   const panel = typeof pid === 'number' ? getPanelById(pid) : getLatestPanelForGuild(interaction.guildId!);
   if (!panel) return interaction.editReply({ embeds: [makeEmbed('No saved panel found for this guild. Create one with /panel create.', undefined, interaction.guildId || undefined)] });
   const embed = new EmbedBuilder().setTitle(panel.title || 'Ticket Panel').setDescription('Click a button below to open a ticket.');
@@ -238,11 +213,16 @@ export const sendpanel = async function (interaction: ChatInputCommandInteractio
   const sent = await channel.send({ embeds: [embed], components: [row as any] });
   updatePanelMessage(panel.id, channel.id, sent.id);
   
-  if ((panel as any).includeStats) {
+  const shouldIncludeStats = (panel as any).includeStats || includeStats;
+  if (shouldIncludeStats) {
     const statsEmbed = createStatsEmbedInternal(interaction.guildId!, (panel as any).embedColor || undefined);
     const statsSent = await channel.send({ embeds: [statsEmbed] });
     updatePanelStatsMessage(panel.id, statsSent.id);
+    if (!((panel as any).includeStats)) {
+      const { enablePanelStats } = await import('../lib/database');
+      enablePanelStats(panel.id);
+    }
   }
   
-  return interaction.editReply({ embeds: [makeEmbed(`Panel sent to ${channel}${(panel as any).includeStats ? ' with stats embed' : ''}`, undefined, interaction.guildId || undefined)] });
+  return interaction.editReply({ embeds: [makeEmbed(`Panel sent to ${channel}${shouldIncludeStats ? ' with stats embed' : ''}`, undefined, interaction.guildId || undefined)] });
 };
