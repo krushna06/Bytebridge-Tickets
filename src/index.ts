@@ -205,9 +205,32 @@ client.on('interactionCreate', async (interaction: any) => {
         if (prefix === 'ticket_close') {
           if (ticket.userId !== interaction.user.id && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
           try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
-          const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id);
-          incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
-          return await safeReply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });
+          
+          const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+          const acceptButton = new ButtonBuilder()
+            .setCustomId(`close_confirm:${ticket.id}`)
+            .setLabel('Accept')
+            .setStyle(ButtonStyle.Success);
+          
+          const declineButton = new ButtonBuilder()
+            .setCustomId(`close_decline:${ticket.id}`)
+            .setLabel('Decline')
+            .setStyle(ButtonStyle.Danger);
+          
+          const row = new ActionRowBuilder().addComponents(acceptButton, declineButton);
+          
+          const reason = 'No reason provided';
+          const embed = new EmbedBuilder()
+            .setDescription(`Are you sure you want to close this ticket?\nReason: ${reason}`);
+          
+          await interaction.channel?.send({
+            embeds: [embed],
+            components: [row]
+          });
+          
+          ticketManager.closeReasons.set(`${ticket.id}`, { reason, userId: interaction.user.id });
+          
+          return await safeReply({ ephemeral: true, content: 'Close confirmation sent.' });
         }
       }
 

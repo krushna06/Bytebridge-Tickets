@@ -228,5 +228,12 @@ export const sendpanel = async function (interaction: ChatInputCommandInteractio
   });
   const sent = await channel.send({ embeds: [embed], components: [row as any] });
   updatePanelMessage(panel.id, channel.id, sent.id);
-  return interaction.editReply({ embeds: [makeEmbed(`Panel sent to ${channel}`, undefined, interaction.guildId || undefined)] });
+  
+  if ((panel as any).includeStats) {
+    const statsEmbed = createStatsEmbedInternal(interaction.guildId!, (panel as any).embedColor || undefined);
+    const statsSent = await channel.send({ embeds: [statsEmbed] });
+    updatePanelStatsMessage(panel.id, statsSent.id);
+  }
+  
+  return interaction.editReply({ embeds: [makeEmbed(`Panel sent to ${channel}${(panel as any).includeStats ? ' with stats embed' : ''}`, undefined, interaction.guildId || undefined)] });
 };

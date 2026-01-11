@@ -555,3 +555,8 @@ export function getPanelsWithStats(guildId: string){
     return { ...row, buttons };
   });
 }
+
+export function enablePanelStats(panelId: number){
+  const stmt = db.prepare('UPDATE panels SET includeStats = 1 WHERE id = @panelId');
+  stmt.run({ panelId });
+}
