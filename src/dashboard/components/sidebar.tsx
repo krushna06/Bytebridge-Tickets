@@ -30,8 +30,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen sticky top-0">
       <div className="p-6 border-b border-sidebar-border">
         <h1 className="text-2xl font-bold text-sidebar-foreground flex items-center gap-3">
-          <div className="w-8 h-8 bg-sidebar-primary rounded-full" />
-          Support
+          Bytebridge
         </h1>
       </div>
 

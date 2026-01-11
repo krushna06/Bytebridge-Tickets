@@ -45,13 +45,40 @@ export function registerOverviewRoutes(app: any, requireKey: any) {
     const totalClosed = leaderboard.reduce((sum: number, staff: any) => sum + (staff.closedCount || 0), 0);
     const totalClaimed = leaderboard.reduce((sum: number, staff: any) => sum + (staff.claimedCount || 0), 0);
 
+    const volumeData: Array<{ date: string; open: number; closed: number }> = [];
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+    for (let i = 0; i < 7; i++) {
+      const dayStart = sevenDaysAgo + (i * 24 * 60 * 60 * 1000);
+      const dayEnd = dayStart + (24 * 60 * 60 * 1000);
+      
+      const date = new Date(dayStart);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      const dayTickets = tickets.filter((t: any) => {
+        const createdAt = Number(t.createdAt);
+        return createdAt >= dayStart && createdAt < dayEnd;
+      });
+      
+      const openCount = dayTickets.filter((t: any) => !t.closedAt || t.closedAt === 0).length;
+      const closedCount = dayTickets.filter((t: any) => t.closedAt && t.closedAt > 0).length;
+      
+      volumeData.push({
+        date: dateStr,
+        open: openCount,
+        closed: closedCount
+      });
+    }
+
     res.json({
       totalTickets,
       openTickets,
       avgResolveMs,
       avgResponseMs,
       totalClosed,
-      totalClaimed
+      totalClaimed,
+      volumeData
     });
   });
 }
