@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { AlertCircle, CheckCircle, Info, Trash2 } from "lucide-react"
+import { AlertCircle, CheckCircle, Info } from "lucide-react"
 
 interface LogItem {
   id: string
@@ -17,7 +16,6 @@ export function Logs() {
   const [items, setItems] = useState<LogItem[]>([])
   const [count, setCount] = useState(100)
   const [loading, setLoading] = useState(false)
-  const [purging, setPurging] = useState(false)
 
   const fetchLogs = (logCount: number) => {
     setLoading(true)
@@ -47,31 +45,6 @@ export function Logs() {
     fetchLogs(newCount)
   }
 
-  const handlePurgeLogs = async () => {
-    if (!confirm("Are you sure you want to delete all logs? This action cannot be undone.")) return
-    
-    setPurging(true)
-    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
-    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
-    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
-    const headers: HeadersInit = { "Content-Type": "application/json" }
-    if (apiKey) headers["X-API-KEY"] = apiKey
-    
-    try {
-      const res = await fetch(`${apiBase}/api/guilds/${guildId}/logs/purge`, {
-        method: "POST",
-        headers,
-      })
-      if (res.ok) {
-        setItems([])
-      }
-    } catch (err) {
-      console.error("Error purging logs:", err)
-    } finally {
-      setPurging(false)
-    }
-  }
-
   const getLogIcon = (type: LogItem["type"]) => {
     switch (type) {
       case "success":
@@ -91,15 +64,6 @@ export function Logs() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Logs</h1>
           <p className="text-muted-foreground">System activity and event logs</p>
         </div>
-        <Button
-          variant="destructive"
-          onClick={handlePurgeLogs}
-          disabled={purging || items.length === 0}
-          className="gap-2"
-        >
-          <Trash2 className="w-4 h-4" />
-          Purge All
-        </Button>
       </div>
 
       <div className="flex items-center gap-4">
