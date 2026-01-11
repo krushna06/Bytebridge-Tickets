@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Client, GatewayIntentBits, Partials, InteractionType, ChannelType, PermissionFlagsBits, GuildMember, EmbedBuilder, ButtonStyle, ActionRowBuilder, ButtonBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, InteractionType, ChannelType, PermissionFlagsBits, GuildMember, EmbedBuilder, ButtonStyle, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import TicketManager from './structures/TicketManager';
 import {
   getTicketByChannel,
@@ -24,7 +24,9 @@ import {
   getTicketMeta,
   addFeedback,
   countTicketsByGuild,
-  countOpenTicketsByGuild
+  countOpenTicketsByGuild,
+  getCategoryById,
+  listQuestions
 } from './lib/database';
 import { startBotApi, setClient } from './api/server';
 import { getTranscriptBaseUrl } from './lib/urlHelper';
@@ -89,6 +91,34 @@ client.on('interactionCreate', async (interaction: any) => {
   const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
   const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
   const categoryDbId = (typeof button === 'object' && button && button.categoryDbId) ? button.categoryDbId : undefined;
+  
+  const questions = categoryDbId ? listQuestions(categoryDbId) : [];
+  
+  if (questions.length > 0) {
+    const modal = new ModalBuilder()
+      .setCustomId(`ticket_form:${panelId}:${idx}`)
+      .setTitle(`Create Ticket - ${label}`);
+    
+    questions.slice(0, 5).forEach((q: any, qIdx: number) => {
+      const input = new TextInputBuilder()
+        .setCustomId(`question_${qIdx}`)
+        .setLabel(q.question.substring(0, 45))
+        .setStyle(q.required ? TextInputStyle.Short : TextInputStyle.Paragraph)
+        .setRequired(!!q.required);
+      
+      if (q.placeholder) {
+        input.setPlaceholder(q.placeholder);
+      }
+      
+      const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+      modal.addComponents(row);
+    });
+    
+    try { await interaction.showModal(modal); } catch (e) { console.error('Failed to show modal', e); }
+    return;
+  }
+  
+  // No questions, create ticket directly
   try { await interaction.deferReply({ ephemeral: true }); } catch (e) { /* ignore if already deferred */ }
   const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
   const result = await ticketManager.createTicket(interaction.guild!, opener, undefined, categoryId, categoryDbId);
@@ -291,6 +321,59 @@ client.on('interactionCreate', async (interaction: any) => {
         return await safeReply({ ephemeral: true, content: 'Close cancelled.' });
       }
       return;
+    }
+
+    if (interaction.isModalSubmit && interaction.isModalSubmit()) {
+      const safeReply = async (opts: any) => {
+        try {
+          try { await interaction.update(opts); return; } catch (_) { }
+          if (interaction.deferred || interaction.replied) {
+            try { await interaction.editReply(opts); return; } catch (_) { }
+          }
+          await interaction.reply(opts);
+        } catch (e: any) {
+          if (e && e.code === 10062) return;
+          console.error('Interaction reply error', e);
+        }
+      };
+
+      const modalId = String(interaction.customId || '');
+      if (!modalId.startsWith('ticket_form:')) return;
+
+      const parts = modalId.split(':');
+      const panelId = Number(parts[1]);
+      const idx = Number(parts[2] ?? 0);
+
+      const panel = getPanelById(panelId);
+      if (!panel) return await safeReply({ ephemeral: true, content: 'Panel not found.' });
+
+      const button = panel.buttons && panel.buttons[idx];
+      const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
+      const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
+      const categoryDbId = (typeof button === 'object' && button && button.categoryDbId) ? button.categoryDbId : undefined;
+
+      try { await interaction.deferReply({ ephemeral: true }); } catch (e) { /* ignore */ }
+
+      const questions = categoryDbId ? listQuestions(categoryDbId) : [];
+      
+      const questionsWithAnswers: Array<{ question: string; answer: string }> = [];
+      for (let i = 0; i < questions.length; i++) {
+        try {
+          const value = interaction.fields.getTextInputValue(`question_${i}`);
+          questionsWithAnswers.push({
+            question: questions[i].question,
+            answer: value
+          });
+        } catch (e) {
+          break;
+        }
+      }
+
+      const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
+      const result = await ticketManager.createTicket(interaction.guild!, opener, undefined, categoryId, categoryDbId, questionsWithAnswers);
+      setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
+
+      return await safeReply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
     }
 
     if (interaction.type !== InteractionType.ApplicationCommand) return;

@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Trash2, Plus, Edit2, HelpCircle } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
+interface Question {
+  id: string
+  question: string
+  placeholder?: string | null
+  required: boolean
+  order_index: number
+}
+
 interface Category {
   id: string
   name: string
@@ -14,6 +22,7 @@ interface Category {
   description?: string | null
   discordCategoryId?: string | null
   createdAt: string
+  questions?: Question[]
 }
 
 interface DiscordCategory {
@@ -38,6 +47,11 @@ export function Categories() {
   const [newCategoryTitle, setNewCategoryTitle] = useState("")
   const [newCategoryDescription, setNewCategoryDescription] = useState("")
   const [selectedDiscordCategory, setSelectedDiscordCategory] = useState("")
+  const [editingQuestions, setEditingQuestions] = useState<string | null>(null)
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [newQuestion, setNewQuestion] = useState("")
+  const [newQuestionPlaceholder, setNewQuestionPlaceholder] = useState("")
+  const [newQuestionRequired, setNewQuestionRequired] = useState(true)
 
   const fetchCategories = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -58,6 +72,13 @@ export function Categories() {
           description: c.description || null,
           discordCategoryId: c.discordCategoryId || null,
           createdAt: new Date(Number(c.createdAt) || Date.now()).toISOString(),
+          questions: (c.questions || []).map((q: any) => ({
+            id: String(q.id),
+            question: q.question,
+            placeholder: q.placeholder || null,
+            required: !!q.required,
+            order_index: q.order_index || 0,
+          })),
         }))
         setCategories(mapped)
       })
@@ -176,6 +197,92 @@ export function Categories() {
     setShowCreateForm(false)
   }
 
+  const handleEditQuestions = (category: Category) => {
+    setEditingQuestions(category.id)
+    setQuestions(category.questions || [])
+    setNewQuestion("")
+    setNewQuestionPlaceholder("")
+    setNewQuestionRequired(true)
+  }
+
+  const handleAddQuestion = async (categoryId: string) => {
+    if (!newQuestion.trim()) return
+    if (questions.length >= 5) {
+      alert("Maximum 5 questions allowed per category")
+      return
+    }
+
+    setActionLoading(`question-add-${categoryId}`)
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const headers: HeadersInit = { "Content-Type": "application/json" }
+    if (apiKey) headers["X-API-KEY"] = apiKey
+
+    try {
+      const res = await fetch(`${apiBase}/api/guilds/${guildId}/categories/${categoryId}/questions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          question: newQuestion,
+          placeholder: newQuestionPlaceholder || null,
+          required: newQuestionRequired,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const newQ: Question = {
+          id: String(data.id),
+          question: newQuestion,
+          placeholder: newQuestionPlaceholder || null,
+          required: newQuestionRequired,
+          order_index: questions.length,
+        }
+        setQuestions([...questions, newQ])
+        setNewQuestion("")
+        setNewQuestionPlaceholder("")
+        setNewQuestionRequired(true)
+      }
+    } catch (err) {
+      console.error("Error adding question:", err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteQuestion = async (categoryId: string, questionId: string) => {
+    if (!confirm("Delete this question?")) return
+    setActionLoading(`question-delete-${questionId}`)
+    const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
+    const guildId = process.env.NEXT_PUBLIC_GUILD_ID
+    const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
+    const headers: HeadersInit = {}
+    if (apiKey) headers["X-API-KEY"] = apiKey
+
+    try {
+      const res = await fetch(`${apiBase}/api/guilds/${guildId}/categories/${categoryId}/questions/${questionId}`, {
+        method: "DELETE",
+        headers,
+      })
+      if (res.ok) {
+        setQuestions(questions.filter(q => q.id !== questionId))
+      }
+    } catch (err) {
+      console.error("Error deleting question:", err)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleCloseQuestions = () => {
+    setEditingQuestions(null)
+    setQuestions([])
+    setNewQuestion("")
+    setNewQuestionPlaceholder("")
+    setNewQuestionRequired(true)
+    fetchCategories()
+  }
+
   return (
     <div className="p-8 space-y-8">
       <div>
@@ -288,10 +395,23 @@ export function Categories() {
                       <span className={category.discordCategoryId ? "text-emerald-600" : "text-muted-foreground"}>
                         {category.discordCategoryId ? "Linked to Discord category" : "No Discord category linked"}
                       </span>
+                      <span className="text-muted-foreground">
+                        {category.questions?.length || 0} question{category.questions?.length !== 1 ? "s" : ""}
+                      </span>
                     </div>
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditQuestions(category)}
+                    disabled={actionLoading?.startsWith("question")}
+                    className="gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Questions
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -315,6 +435,83 @@ export function Categories() {
                 </div>
               </div>
             </CardHeader>
+
+            {editingQuestions === category.id && (
+              <CardContent className="border-t pt-4 space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-3">Manage Questions ({questions.length}/5)</h3>
+                  
+                  {questions.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {questions.map((q) => (
+                        <div key={q.id} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{q.question}</p>
+                            {q.placeholder && <p className="text-xs text-muted-foreground">Placeholder: {q.placeholder}</p>}
+                            <p className="text-xs text-muted-foreground">{q.required ? "Required" : "Optional"}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteQuestion(category.id, q.id)}
+                            disabled={actionLoading === `question-delete-${q.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {questions.length < 5 && (
+                    <div className="space-y-3 p-3 bg-muted rounded-md">
+                      <div>
+                        <label className="text-sm font-medium">Question</label>
+                        <Input
+                          placeholder="e.g., What is your issue about?"
+                          value={newQuestion}
+                          onChange={(e) => setNewQuestion(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Placeholder (Optional)</label>
+                        <Input
+                          placeholder="e.g., Describe your issue..."
+                          value={newQuestionPlaceholder}
+                          onChange={(e) => setNewQuestionPlaceholder(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`required-${category.id}`}
+                          checked={newQuestionRequired}
+                          onChange={(e) => setNewQuestionRequired(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <label htmlFor={`required-${category.id}`} className="text-sm font-medium cursor-pointer">
+                          Required
+                        </label>
+                      </div>
+                      <Button
+                        onClick={() => handleAddQuestion(category.id)}
+                        disabled={actionLoading === `question-add-${category.id}` || !newQuestion.trim()}
+                        className="w-full gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Question
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <Button variant="outline" onClick={handleCloseQuestions} className="w-full">
+                  Done
+                </Button>
+              </CardContent>
+            )}
           </Card>
         ))}
         {categories.length === 0 && !loading && (
@@ -324,4 +521,3 @@ export function Categories() {
     </div>
   )
 }
-

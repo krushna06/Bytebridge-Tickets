@@ -19,7 +19,7 @@ export class TicketManager {
     this.client = client;
   }
 
-  async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null, categoryDbId?: number | null) {
+  async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null, categoryDbId?: number | null, questionsWithAnswers?: Array<{ question: string; answer: string }>) {
     const createOptions: any = {
       name: `ticket-${opener.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 90),
       type: ChannelType.GuildText,
@@ -67,6 +67,16 @@ export class TicketManager {
       .setDescription(description)
       .setColor(embedColor)
       .setTimestamp();
+
+    if (questionsWithAnswers && questionsWithAnswers.length > 0) {
+      questionsWithAnswers.forEach((qa) => {
+        embed.addFields({
+          name: qa.question,
+          value: qa.answer || 'No answer provided',
+          inline: false
+        });
+      });
+    }
 
     const row = new ActionRowBuilder<ButtonBuilder>();
 

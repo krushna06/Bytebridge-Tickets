@@ -123,6 +123,17 @@ CREATE TABLE IF NOT EXISTS categories (
   createdAt INTEGER NOT NULL,
   UNIQUE(guildId, name)
 );
+
+CREATE TABLE IF NOT EXISTS category_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  categoryId INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  placeholder TEXT,
+  required INTEGER DEFAULT 1,
+  order_index INTEGER DEFAULT 0,
+  createdAt INTEGER NOT NULL,
+  FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE
+);
 `);
 
 try {
@@ -571,4 +582,43 @@ export function getCategoryByDiscordId(guildId: string, discordCategoryId: strin
   const stmt = db.prepare('SELECT * FROM categories WHERE guildId = ? AND discordCategoryId = ?');
   const row = stmt.get(guildId, discordCategoryId) as any | undefined;
   return row ?? null;
+}
+
+export function createQuestion(categoryId: number, question: string, placeholder?: string | null, required = true, orderIndex = 0) {
+  const stmt = db.prepare('INSERT INTO category_questions (categoryId, question, placeholder, required, order_index, createdAt) VALUES (?, ?, ?, ?, ?, ?)');
+  const info = stmt.run(categoryId, question, placeholder || null, required ? 1 : 0, orderIndex, Date.now());
+  return Number((info as any).lastInsertRowid || info.lastInsertRowid);
+}
+
+export function listQuestions(categoryId: number) {
+  const stmt = db.prepare('SELECT * FROM category_questions WHERE categoryId = ? ORDER BY order_index ASC');
+  return stmt.all(categoryId) as any[];
+}
+
+export function getQuestion(questionId: number) {
+  const stmt = db.prepare('SELECT * FROM category_questions WHERE id = ?');
+  const row = stmt.get(questionId) as any | undefined;
+  return row ?? null;
+}
+
+export function updateQuestion(questionId: number, updates: { question?: string; placeholder?: string | null; required?: boolean; order_index?: number }) {
+  const keys = Object.keys(updates).filter(k => updates[k as keyof typeof updates] !== undefined);
+  if (!keys.length) return;
+  const set = keys.map(k => `${k} = @${k}`).join(', ');
+  const stmt = db.prepare(`UPDATE category_questions SET ${set} WHERE id = @id`);
+  const params: any = { ...updates, id: questionId };
+  if (params.required !== undefined) params.required = params.required ? 1 : 0;
+  (stmt as any).run(params);
+}
+
+export function deleteQuestion(questionId: number) {
+  const stmt = db.prepare('DELETE FROM category_questions WHERE id = ?');
+  const info = stmt.run(questionId);
+  return Number((info as any).changes || 0);
+}
+
+export function deleteQuestionsByCategory(categoryId: number) {
+  const stmt = db.prepare('DELETE FROM category_questions WHERE categoryId = ?');
+  const info = stmt.run(categoryId);
+  return Number((info as any).changes || 0);
 }
