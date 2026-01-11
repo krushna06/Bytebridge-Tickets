@@ -33,6 +33,7 @@ export default {
   rename: ticket.rename,
   topic: ticket.topic,
   transcript: ticket.transcript,
+  setticket: ticket.setticket,
 
   panel: panels.panel,
   sendpanel: panels.sendpanel

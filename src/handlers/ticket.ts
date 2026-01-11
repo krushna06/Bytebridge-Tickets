@@ -4,7 +4,8 @@ import {
   getGuildSettings,
   setTicketMeta,
   getTicketMeta,
-  incStaffStat
+  incStaffStat,
+  createTicketRow
 } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
@@ -156,4 +157,53 @@ export const transcript = async function (interaction: ChatInputCommandInteracti
   if (!ticket) return interaction.editReply('This channel is not a ticket.');
   if (!ticket.transcriptPath) return interaction.editReply('No transcript saved yet.');
   return interaction.editReply({ content: `Transcript path: ${ticket.transcriptPath}` });
+};
+
+export const setticket = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
+  await interaction.deferReply({ ephemeral: true });
+  const channel = interaction.options.getChannel('channel', true);
+  const user = interaction.options.getUser('user', false);
+  
+  if (!interaction.guildId) return interaction.editReply({ embeds: [makeEmbed('This command must be used in a guild.', undefined, interaction.guildId || undefined)] });
+  
+  const settings = getGuildSettings(interaction.guildId);
+  const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+  
+  if (!isStaffFromSettings(member, settings)) {
+    return interaction.editReply({ embeds: [makeEmbed('You do not have permission to set tickets.', undefined, interaction.guildId)] });
+  }
+  
+  if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) {
+    return interaction.editReply({ embeds: [makeEmbed('The channel must be a text channel.', undefined, interaction.guildId)] });
+  }
+  
+  const existingTicket = getTicketByChannel(channel.id);
+  if (existingTicket) {
+    return interaction.editReply({ embeds: [makeEmbed('This channel is already a ticket.', undefined, interaction.guildId)] });
+  }
+  
+  const ticketOwner = user || interaction.user;
+  
+  try {
+    const ticketId = createTicketRow({
+      guildId: interaction.guildId,
+      channelId: channel.id,
+      userId: ticketOwner.id,
+      status: 'open',
+      createdAt: Date.now()
+    });
+    
+    setTicketMeta(ticketId, { ownerId: ticketOwner.id, guildId: interaction.guildId });
+    
+    return interaction.editReply({ 
+      embeds: [makeEmbed(
+        `Channel <#${channel.id}> has been converted to a ticket (ID: ${ticketId}) assigned to ${ticketOwner.tag}.`,
+        undefined,
+        interaction.guildId
+      )] 
+    });
+  } catch (err: any) {
+    console.error('Error setting ticket:', err);
+    return interaction.editReply({ embeds: [makeEmbed(`Error: ${err?.message || 'Failed to set ticket'}`, undefined, interaction.guildId)] });
+  }
 };

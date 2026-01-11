@@ -11,6 +11,7 @@ import move from './Staff/move';
 import transfer from './Staff/transfer';
 import panel from './Staff/panel';
 import sendpanel from './Staff/sendpanel';
+import setticket from './Staff/setticket';
 
 import leaderboard from './Stats/leaderboard';
 import stats from './Stats/stats';
@@ -31,7 +32,7 @@ import viewnotes from './Notes/viewnotes';
 const commands = [
   help, _new, tag, tickets,
   claim, forceClose, move, priority, release, transfer,
-  panel, sendpanel,
+  panel, sendpanel, setticket,
   leaderboard, stats, setprofile, viewprofile,
   add, remove, close, rename, topic, transcript,
   note, stickynotes, viewnotes
