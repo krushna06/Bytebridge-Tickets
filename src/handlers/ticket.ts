@@ -1,11 +1,12 @@
-import { ChatInputCommandInteraction, Channel } from 'discord.js';
+import { ChatInputCommandInteraction, Channel, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import {
   getTicketByChannel,
   getGuildSettings,
   setTicketMeta,
   getTicketMeta,
   incStaffStat,
-  createTicketRow
+  createTicketRow,
+  getTicketById
 } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
@@ -62,14 +63,23 @@ export const claim = async function (interaction: ChatInputCommandInteraction, c
 
 export const forceClose = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
+  const ticketId = interaction.options.getString('ticketid', true);
+  const reason = interaction.options.getString('reason', false) || 'No reason provided';
+  
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to force-close tickets.', undefined, interaction.guildId || undefined)] });
-  const ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
-  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
-  const result = await ctx.ticketManager.closeTicket(interaction.channel!.id, interaction.user.id);
-  incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
-  return interaction.editReply({ embeds: [makeEmbed(`Ticket forcibly closed. Transcript: ${result.transcriptPath}`, undefined, interaction.guildId || undefined)] });
+  
+  const ticket = getTicketById(Number(ticketId)) as any | null;
+  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('Ticket not found.', undefined, interaction.guildId || undefined)] });
+  
+  try {
+    const result = await ctx.ticketManager.closeTicket(ticket.channelId, interaction.user.id, reason);
+    incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
+    return interaction.editReply({ embeds: [makeEmbed(`Ticket #${ticketId} forcibly closed.\nReason: ${reason}`, undefined, interaction.guildId || undefined)] });
+  } catch (err: any) {
+    return interaction.editReply({ embeds: [makeEmbed(`Error closing ticket: ${err?.message || 'Unknown error'}`, undefined, interaction.guildId || undefined)] });
+  }
 };
 
 export const move = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
@@ -107,22 +117,33 @@ export const release = async function (interaction: ChatInputCommandInteraction,
 };
 
 export const close = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
-  if (!interaction.channel) return interaction.editReply({ embeds: [makeEmbed('No channel', undefined, interaction.guildId || undefined)] });
+  if (!interaction.channel) return interaction.reply({ embeds: [makeEmbed('No channel', undefined, interaction.guildId || undefined)], ephemeral: true });
   const ticket = getTicketByChannel(interaction.channel.id) as any | null;
-  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
+  if (!ticket) return interaction.reply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)], ephemeral: true });
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
-  if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to close this ticket.', undefined, interaction.guildId || undefined)] });
-  const result = await ctx.ticketManager.closeTicket(interaction.channel.id, interaction.user.id);
-  if (settings && (settings as any).transcriptChannelId && result.transcriptPath) {
-    try {
-      const tc = await ctx.client.channels.fetch((settings as any).transcriptChannelId);
-      if (tc && (tc as any).isTextBased()) await (tc as any).send({ content: `Transcript for ticket ${result.ticketId}`, files: [result.transcriptPath] as any });
-    } catch(e) {}
-  }
-  if (ticket) incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
-  return interaction.editReply({ embeds: [makeEmbed(`Ticket closed. Transcript: ${result.transcriptPath}`, undefined, interaction.guildId || undefined)] });
+  if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.reply({ embeds: [makeEmbed('You do not have permission to close this ticket.', undefined, interaction.guildId || undefined)], ephemeral: true });
+  
+  const reason = interaction.options.getString('reason', false) || 'No reason provided';
+  
+  const acceptButton = new ButtonBuilder()
+    .setCustomId(`close_confirm:${ticket.id}`)
+    .setLabel('Accept')
+    .setStyle(ButtonStyle.Success);
+  
+  const declineButton = new ButtonBuilder()
+    .setCustomId(`close_decline:${ticket.id}`)
+    .setLabel('Decline')
+    .setStyle(ButtonStyle.Danger);
+  
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(acceptButton, declineButton);
+  
+  await interaction.reply({
+    embeds: [makeEmbed(`Are you sure you want to close this ticket?\nReason: ${reason}`, undefined, interaction.guildId || undefined)],
+    components: [row]
+  });
+  
+  ctx.ticketManager.closeReasons.set(`${ticket.id}`, { reason, userId: interaction.user.id });
 };
 
 export const rename = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

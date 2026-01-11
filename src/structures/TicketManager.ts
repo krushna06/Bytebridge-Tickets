@@ -6,6 +6,8 @@ import { updateStatsEmbeds } from '../lib/statsUpdater';
 
 export class TicketManager {
   client: Client;
+  closeReasons: Map<string, { reason: string; userId: string }> = new Map();
+  
   constructor(client: Client) {
     this.client = client;
   }
@@ -81,7 +83,8 @@ export class TicketManager {
     const channel = await this.client.channels.fetch(channelId);
     if (!channel || !channel.isTextBased()) throw new Error('Channel not found or not text');
     const closedAt = Date.now();
-    await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Transcript saved.`);
+    const reason = closeReason || 'No reason provided';
+    await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Reason: ${reason}`);
 
   const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
   updateTicketRow(ticket.id, { status: 'closed', closedAt, transcriptPath, closedBy: closerId || null });
@@ -107,7 +110,7 @@ export class TicketManager {
           { name: 'Created at', value: `${fmt(createdAt)}`, inline: true },
           { name: 'Closed at', value: `${fmt(closedDate)}\n(after ${diffDays} days)`, inline: true },
           { name: 'Closed by', value: `<@${closerId || 'system'}>`, inline: true },
-          { name: 'Closed because', value: `${closeReason || 'Closed due to inactivity.'}`, inline: true },
+          { name: 'Closed because', value: `${reason}`, inline: true },
           { name: 'Transcript', value: 'Click here' }
         )
         .setTimestamp(closedAt);

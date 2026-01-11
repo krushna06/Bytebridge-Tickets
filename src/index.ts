@@ -210,6 +210,62 @@ client.on('interactionCreate', async (interaction: any) => {
           return await safeReply({ ephemeral: true, content: `Ticket closed. Transcript: ${result.transcriptPath}` });
         }
       }
+
+      if (prefix === 'close_confirm') {
+        const ticketId = Number(parts[1]);
+        
+        const ticket = getTicketById(ticketId);
+        if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
+        if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This button does not belong to this channel.' });
+        
+        const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+        const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+        
+        function isStaff(member: GuildMember | any) {
+          try {
+            if (!member) return false;
+            if (settings && settings.staffRoleId) return member.roles?.cache?.has(settings.staffRoleId);
+            return member.permissions?.has(PermissionFlagsBits.ManageChannels) || member.permissions?.has(PermissionFlagsBits.ManageGuild);
+          } catch (e) { return false; }
+        }
+        
+        if (ticket.userId !== interaction.user.id && !isStaff(member)) {
+          return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+        }
+        
+        try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
+        
+        const reasonData = ticketManager.closeReasons.get(`${ticketId}`);
+        const reason = reasonData?.reason || 'No reason provided';
+        
+        const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id, reason);
+        incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
+        
+        ticketManager.closeReasons.delete(`${ticketId}`);
+        
+        try {
+          await interaction.message?.edit({ components: [] });
+        } catch (e) {}
+        
+        return await safeReply({ ephemeral: true, content: `Ticket closed.\nReason: ${reason}` });
+      }
+
+      if (prefix === 'close_decline') {
+        const ticketId = Number(parts[1]);
+        const ticket = getTicketById(ticketId);
+        if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
+        if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This button does not belong to this channel.' });
+        
+        try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
+        
+        ticketManager.closeReasons.delete(`${ticketId}`);
+        
+        try {
+          await interaction.message?.edit({ components: [] });
+        } catch (e) {}
+        
+        return await safeReply({ ephemeral: true, content: 'Close cancelled.' });
+      }
       return;
     }
 
