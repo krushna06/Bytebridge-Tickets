@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Trash2, Lock, Eye, X, Download, Star } from "lucide-react"
 
@@ -30,6 +31,7 @@ export function Tickets() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [viewingTranscriptId, setViewingTranscriptId] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const fetchTickets = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -82,6 +84,15 @@ export function Tickets() {
     fetchTickets()
     fetchFeedbacks()
   }, [])
+
+  const filteredTickets = liveTickets.filter((t) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      String(t.id).includes(query) ||
+      t.userId.toLowerCase().includes(query)
+    )
+  })
 
   const handleCloseTicket = async (ticketId: number) => {
     setActionLoading(ticketId)
@@ -248,8 +259,22 @@ export function Tickets() {
       </div>
 
       <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Search by ticket ID or user ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-sm"
+          />
+          {searchQuery && (
+            <p className="text-sm text-muted-foreground">
+              Found {filteredTickets.length} ticket{filteredTickets.length !== 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
+
         <h2 className="text-xl font-bold text-foreground">Tickets</h2>
-        {liveTickets.map((t) => (
+        {filteredTickets.map((t) => (
           <Card key={t.id}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -341,8 +366,10 @@ export function Tickets() {
             </CardContent>
           </Card>
         ))}
-        {liveTickets.length === 0 && !loading && (
-          <p className="text-muted-foreground text-sm">No tickets have been recorded for this guild yet.</p>
+        {filteredTickets.length === 0 && !loading && (
+          <p className="text-muted-foreground text-sm">
+            {searchQuery ? "No tickets match your search." : "No tickets have been recorded for this guild yet."}
+          </p>
         )}
       </div>
     </div>
