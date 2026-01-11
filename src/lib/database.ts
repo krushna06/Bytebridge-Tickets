@@ -159,6 +159,12 @@ try {
   if (!cols3.includes('discordCategoryId')) {
     db.prepare('ALTER TABLE categories ADD COLUMN discordCategoryId TEXT').run();
   }
+  if (!cols3.includes('title')) {
+    db.prepare('ALTER TABLE categories ADD COLUMN title TEXT').run();
+  }
+  if (!cols3.includes('description')) {
+    db.prepare('ALTER TABLE categories ADD COLUMN description TEXT').run();
+  }
 } catch (e) { /* ignore */ }
 
 try {
@@ -367,10 +373,10 @@ export function listTags(guildId: string){
 }
 
 
-type PanelButton = { label: string; categoryId?: string | null };
+type PanelButton = { label: string; categoryId?: string | null; categoryDbId?: number | null };
 
 export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>, embedColor?: string | null, description?: string | null, includeStats?: boolean){
-  const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null } : { label: b.label, categoryId: b.categoryId ?? null });
+  const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null, categoryDbId: null } : { label: b.label, categoryId: b.categoryId ?? null, categoryDbId: b.categoryDbId ?? null });
   const stmt = db.prepare('INSERT INTO panels (guildId,title,description,creatorId,buttons,createdAt,embedColor,includeStats) VALUES (?,?,?,?,?,?,?,?)');
   const info = stmt.run(guildId, title || null, description || null, creatorId || null, JSON.stringify(normalized), Date.now(), embedColor || null, includeStats ? 1 : 0);
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
@@ -384,7 +390,7 @@ export function getLatestPanelForGuild(guildId: string){
   let parsed: any;
   try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
   // normalize elements to PanelButton
-  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null });
   return { ...row, buttons };
 }
 
@@ -395,7 +401,7 @@ export function getPanelById(id: number){
   if (!row) return null;
   let parsed: any;
   try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
-  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null });
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null });
   return { ...row, buttons };
 }
 
@@ -506,9 +512,9 @@ export function deleteTicketRow(id: number) {
   return Number((info as any).changes || 0);
 }
 
-export function createCategory(guildId: string, name: string, discordCategoryId?: string | null) {
-  const stmt = db.prepare('INSERT INTO categories (guildId, name, discordCategoryId, createdAt) VALUES (?, ?, ?, ?)');
-  const info = stmt.run(guildId, name, discordCategoryId || null, Date.now());
+export function createCategory(guildId: string, name: string, discordCategoryId?: string | null, title?: string | null, description?: string | null) {
+  const stmt = db.prepare('INSERT INTO categories (guildId, name, discordCategoryId, title, description, createdAt) VALUES (?, ?, ?, ?, ?, ?)');
+  const info = stmt.run(guildId, name, discordCategoryId || null, title || null, description || null, Date.now());
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
 }
 
@@ -523,7 +529,7 @@ export function getCategoryById(id: number) {
   return row ?? null;
 }
 
-export function updateCategory(id: number, updates: { name?: string; discordCategoryId?: string | null }) {
+export function updateCategory(id: number, updates: { name?: string; discordCategoryId?: string | null; title?: string | null; description?: string | null }) {
   const keys = Object.keys(updates).filter(k => updates[k as keyof typeof updates] !== undefined);
   if (!keys.length) return;
   const set = keys.map(k => `${k} = @${k}`).join(', ');
@@ -559,4 +565,10 @@ export function getPanelsWithStats(guildId: string){
 export function enablePanelStats(panelId: number){
   const stmt = db.prepare('UPDATE panels SET includeStats = 1 WHERE id = @panelId');
   stmt.run({ panelId });
+}
+
+export function getCategoryByDiscordId(guildId: string, discordCategoryId: string) {
+  const stmt = db.prepare('SELECT * FROM categories WHERE guildId = ? AND discordCategoryId = ?');
+  const row = stmt.get(guildId, discordCategoryId) as any | undefined;
+  return row ?? null;
 }

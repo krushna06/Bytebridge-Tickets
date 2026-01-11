@@ -88,9 +88,10 @@ client.on('interactionCreate', async (interaction: any) => {
   const button = panel.buttons && panel.buttons[idx];
   const label = (typeof button === 'string') ? button : (button && button.label) ? button.label : `Category ${idx + 1}`;
   const categoryId = (typeof button === 'object' && button && button.categoryId) ? button.categoryId : undefined;
+  const categoryDbId = (typeof button === 'object' && button && button.categoryDbId) ? button.categoryDbId : undefined;
   try { await interaction.deferReply({ ephemeral: true }); } catch (e) { /* ignore if already deferred */ }
   const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
-  const result = await ticketManager.createTicket(interaction.guild!, opener, `Opened from panel: ${label}`, categoryId);
+  const result = await ticketManager.createTicket(interaction.guild!, opener, undefined, categoryId, categoryDbId);
         setTicketMeta(result.ticketId, { ownerId: label, guildId: interaction.guildId });
   return await safeReply({ ephemeral: true, content: `Ticket created: <#${result.channel.id}> (ID: ${result.ticketId})` });
       }

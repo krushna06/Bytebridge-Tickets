@@ -1,8 +1,15 @@
 import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings } from '../lib/database';
+import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings, getCategoryById } from '../lib/database';
 import { saveChannelTranscript } from '../lib/transcript';
 import { getTranscriptBaseUrl } from '../lib/urlHelper';
 import { updateStatsEmbeds } from '../lib/statsUpdater';
+
+function processWelcomeMessage(template: string, user: GuildMember, ticketId: number, categoryName: string): string {
+  return template
+    .replace(/{user}/g, `<@${user.id}>`)
+    .replace(/{ticket}/g, `#${ticketId}`)
+    .replace(/{category}/g, categoryName);
+}
 
 export class TicketManager {
   client: Client;
@@ -12,7 +19,7 @@ export class TicketManager {
     this.client = client;
   }
 
-  async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null) {
+  async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null, categoryDbId?: number | null) {
     const createOptions: any = {
       name: `ticket-${opener.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 90),
       type: ChannelType.GuildText,
@@ -42,9 +49,22 @@ export class TicketManager {
     const embedColor = settings?.embedColor ? parseInt(settings.embedColor.replace('#', ''), 16) : 0x5865f2;
     const claimEnabled = settings ? !!settings.claimEnabled : true;
 
+    let description = `Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : '');
+    let title = 'New ticket';
+
+    if (categoryDbId) {
+      const category = getCategoryById(categoryDbId);
+      if (category && category.description) {
+        description = processWelcomeMessage(category.description, opener, ticketId, category.name);
+        if (category.title) {
+          title = category.title;
+        }
+      }
+    }
+
     const embed = new EmbedBuilder()
-      .setTitle('New ticket')
-      .setDescription(`Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : ''))
+      .setTitle(title)
+      .setDescription(description)
       .setColor(embedColor)
       .setTimestamp();
 
@@ -68,8 +88,7 @@ export class TicketManager {
     try {
       await (channel as TextChannel).send({ embeds: [embed], components: [row as any] });
     } catch (err) {
-      const welcome = `Hello ${opener}, thank you for opening a ticket (ID: ${ticketId}).` + (summary ? `\nReason: ${summary}` : '');
-      await (channel as TextChannel).send({ content: welcome });
+      await (channel as TextChannel).send({ content: description });
     }
 
     updateStatsEmbeds(this.client, guild.id).catch(err => console.error('Failed to update stats embeds:', err));

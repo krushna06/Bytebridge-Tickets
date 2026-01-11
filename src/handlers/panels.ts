@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel, updatePanelStatsMessage, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild } from '../lib/database';
+import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel, updatePanelStatsMessage, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild, getCategoryByDiscordId } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 import fs from 'fs';
 
@@ -141,11 +141,20 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
   if (sub === 'create') {
     const title = interaction.options.getString('title') || null;
     const includeStats = interaction.options.getBoolean('include_stats') || false;
-    const buttons: Array<{ label: string; categoryId?: string | null }> = [];
+    const buttons: Array<{ label: string; categoryId?: string | null; categoryDbId?: number | null }> = [];
     for (let i = 1; i <= 5; i++) {
       const b = interaction.options.getString(`button${i}` as any);
       const cat = interaction.options.getChannel(`button${i}_category` as any) as any;
-      if (b && b.trim()) buttons.push({ label: b.trim(), categoryId: cat && cat.id ? cat.id : null });
+      if (b && b.trim()) {
+        let categoryDbId: number | null = null;
+        if (cat && cat.id) {
+          const category = getCategoryByDiscordId(interaction.guildId!, cat.id);
+          if (category) {
+            categoryDbId = category.id;
+          }
+        }
+        buttons.push({ label: b.trim(), categoryId: cat && cat.id ? cat.id : null, categoryDbId });
+      }
     }
     if (!buttons.length) return interaction.editReply({ embeds: [makeEmbed('Please provide at least one button label (up to 5).', undefined, interaction.guildId || undefined)] });
     const panelId = createPanel(interaction.guildId!, title, interaction.user.id, buttons as any, undefined, undefined, includeStats);

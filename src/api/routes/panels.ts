@@ -19,7 +19,8 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
         const category = getCategoryById(Number(catId));
         const label = category ? category.name : `Category ${catId}`;
         const discordCategoryId = category ? category.discordCategoryId : null;
-        return { label, categoryId: discordCategoryId };
+        const categoryDbId = category ? category.id : null;
+        return { label, categoryId: discordCategoryId, categoryDbId };
       });
       const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', buttons, embedColor || null, description || null);
       res.json({ ok: true, id: panelId });
@@ -47,7 +48,8 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
           const category = getCategoryById(Number(catId));
           const label = category ? category.name : `Category ${catId}`;
           const discordCategoryId = category ? category.discordCategoryId : null;
-          return { label, categoryId: discordCategoryId };
+          const categoryDbId = category ? category.id : null;
+          return { label, categoryId: discordCategoryId, categoryDbId };
         });
         updates.buttons = JSON.stringify(buttons);
       }
@@ -56,7 +58,6 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
       }
       updatePanel(panelId, updates);
 
-      // Update the message in Discord if it was posted
       if (panel.channelId && panel.messageId) {
         try {
           const channel = await ticketManager.client.channels.fetch(panel.channelId) as any;
