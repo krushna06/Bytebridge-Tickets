@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS guild_settings (
   embedColor TEXT,
   embedFooter TEXT,
   ticketChannelId TEXT,
-  logsChannelId TEXT
+  logsChannelId TEXT,
+  channelPrefix TEXT DEFAULT '{category}-{count}'
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
@@ -231,6 +232,14 @@ try {
   }
 } catch (e) { /* ignore */ }
 
+try {
+  const infoGuildSettings = db.prepare("PRAGMA table_info(guild_settings)").all();
+  const colsGuildSettings = (infoGuildSettings || []).map((c: any) => c.name);
+  if (!colsGuildSettings.includes('channelPrefix')) {
+    db.prepare("ALTER TABLE guild_settings ADD COLUMN channelPrefix TEXT DEFAULT '{category}-{count}'").run();
+  }
+} catch (e) { /* ignore */ }
+
 
 export type GuildSettingsRow = {
   guildId: string;
@@ -247,6 +256,7 @@ export type GuildSettingsRow = {
    embedFooter?: string | null;
    ticketChannelId?: string | null;
    logsChannelId?: string | null;
+   channelPrefix?: string | null;
 };
 
 export function getGuildSettings(guildId: string): GuildSettingsRow | null {
@@ -257,8 +267,8 @@ export function getGuildSettings(guildId: string): GuildSettingsRow | null {
 
 export function upsertGuildSettings(settings: GuildSettingsRow) {
   const stmt = db.prepare(`INSERT INTO guild_settings (
-    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout, embedColor, embedFooter, ticketChannelId, logsChannelId
-  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout,@embedColor,@embedFooter,@ticketChannelId,@logsChannelId)
+    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout, embedColor, embedFooter, ticketChannelId, logsChannelId, channelPrefix
+  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout,@embedColor,@embedFooter,@ticketChannelId,@logsChannelId,@channelPrefix)
   ON CONFLICT(guildId) DO UPDATE SET
     staffRoleId=excluded.staffRoleId,
     allowedRoles=excluded.allowedRoles,
@@ -272,7 +282,8 @@ export function upsertGuildSettings(settings: GuildSettingsRow) {
     embedColor=excluded.embedColor,
     embedFooter=excluded.embedFooter,
     ticketChannelId=excluded.ticketChannelId,
-    logsChannelId=excluded.logsChannelId
+    logsChannelId=excluded.logsChannelId,
+    channelPrefix=excluded.channelPrefix
   `);
   stmt.run(settings as any);
 }

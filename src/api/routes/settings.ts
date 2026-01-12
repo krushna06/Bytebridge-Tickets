@@ -19,7 +19,8 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
       staffRoles,
       transcriptChannel: s && s.transcriptChannelId ? s.transcriptChannelId : '',
       feedbackChannel: s && s.feedbackChannelId ? s.feedbackChannelId : '',
-      logsChannel: s && s.logsChannelId ? s.logsChannelId : ''
+      logsChannel: s && s.logsChannelId ? s.logsChannelId : '',
+      channelPrefix: s && s.channelPrefix ? s.channelPrefix : '{category}-{count}'
     };
     res.json(out);
   });
@@ -52,7 +53,8 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
       embedColor: body.embedColor || (existing ? existing.embedColor : null),
       embedFooter: body.embedFooter || (existing ? existing.embedFooter : null),
       ticketChannelId: body.ticketChannel || (existing ? existing.ticketChannelId : null),
-      logsChannelId: body.logsChannel || (existing ? existing.logsChannelId : null)
+      logsChannelId: body.logsChannel || (existing ? existing.logsChannelId : null),
+      channelPrefix: body.channelPrefix || (existing ? existing.channelPrefix : '{category}-{count}')
     } as any;
     upsertGuildSettings(toSave);
     res.json({ ok: true });

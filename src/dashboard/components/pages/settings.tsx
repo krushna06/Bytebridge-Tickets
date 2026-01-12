@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Toggle } from "@/components/ui/toggle"
+import { HelpCircle } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+
+const CHANNEL_PREFIX_VARIABLES = [
+  { name: "{count}", description: "Total ticket count for the guild" },
+  { name: "{user}", description: "Username of the ticket creator" },
+  { name: "{category}", description: "Category name" },
+]
 
 export function Settings() {
   const [embedColor, setEmbedColor] = useState("#5865f2")
@@ -15,6 +23,7 @@ export function Settings() {
   const [transcriptChannel, setTranscriptChannel] = useState("")
   const [feedbackChannel, setFeedbackChannel] = useState("")
   const [logsChannel, setLogsChannel] = useState("")
+  const [channelPrefix, setChannelPrefix] = useState("{category}-{count}")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -36,6 +45,7 @@ export function Settings() {
         if (typeof data.transcriptChannel === "string") setTranscriptChannel(data.transcriptChannel)
         if (typeof data.feedbackChannel === "string") setFeedbackChannel(data.feedbackChannel)
         if (typeof data.logsChannel === "string") setLogsChannel(data.logsChannel)
+        if (typeof data.channelPrefix === "string") setChannelPrefix(data.channelPrefix)
       })
       .catch(() => {})
   }, [])
@@ -61,6 +71,7 @@ export function Settings() {
         transcriptChannel,
         feedbackChannel,
         logsChannel,
+        channelPrefix,
       }),
     })
       .then(() => {})
@@ -105,6 +116,35 @@ export function Settings() {
                 value={embedFooter}
                 onChange={(e) => setEmbedFooter(e.target.value)}
                 placeholder="Footer text for embeds"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="channel-prefix">Channel Name Prefix</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-4 h-4 cursor-help text-muted-foreground hover:text-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <div className="space-y-2">
+                      <p className="font-semibold">Available Variables:</p>
+                      {CHANNEL_PREFIX_VARIABLES.map((variable) => (
+                        <div key={variable.name} className="text-xs">
+                          <code className="bg-background/50 px-1 py-0.5 rounded">{variable.name}</code>
+                          <p className="text-muted-foreground">{variable.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id="channel-prefix"
+                type="text"
+                value={channelPrefix}
+                onChange={(e) => setChannelPrefix(e.target.value)}
+                placeholder="e.g., {category}-{count}"
               />
             </div>
           </CardContent>

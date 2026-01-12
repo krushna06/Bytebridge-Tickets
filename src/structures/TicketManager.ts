@@ -1,5 +1,5 @@
 import { Client, Guild, GuildMember, ChannelType, PermissionFlagsBits, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings, getCategoryById } from '../lib/database';
+import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings, getCategoryById, countTicketsByGuild } from '../lib/database';
 import { saveChannelTranscript } from '../lib/transcript';
 import { getTranscriptBaseUrl } from '../lib/urlHelper';
 import { updateStatsEmbeds } from '../lib/statsUpdater';
@@ -20,8 +20,28 @@ export class TicketManager {
   }
 
   async createTicket(guild: Guild, opener: GuildMember, summary?: string, categoryId?: string | null, categoryDbId?: number | null, questionsWithAnswers?: Array<{ question: string; answer: string }>) {
+    const settings = getGuildSettings(guild.id);
+    
+    let channelName = `ticket-${opener.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 90);
+    
+    if (settings?.channelPrefix) {
+      const ticketCount = countTicketsByGuild(guild.id);
+      let categoryName = 'support';
+      
+      if (categoryDbId) {
+        const category = getCategoryById(categoryDbId);
+        if (category) categoryName = category.name;
+      }
+      
+      channelName = settings.channelPrefix
+        .replace(/{count}/g, String(ticketCount))
+        .replace(/{user}/g, opener.user.username)
+        .replace(/{category}/g, categoryName)
+        .slice(0, 100);
+    }
+    
     const createOptions: any = {
-      name: `ticket-${opener.user.username}`.toLowerCase().replace(/[^a-z0-9\-]/g, '-').slice(0, 90),
+      name: channelName,
       type: ChannelType.GuildText,
       permissionOverwrites: [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -39,13 +59,6 @@ export class TicketManager {
       createdAt: Date.now()
     });
 
-    try {
-      const newName = `ticket-${ticketId}`;
-      if ((channel as any).setName) await (channel as any).setName(newName);
-    } catch (e) {
-    }
-
-    const settings = getGuildSettings(guild.id);
     const embedColor = settings?.embedColor ? parseInt(settings.embedColor.replace('#', ''), 16) : 0x5865f2;
     const claimEnabled = settings ? !!settings.claimEnabled : true;
 
