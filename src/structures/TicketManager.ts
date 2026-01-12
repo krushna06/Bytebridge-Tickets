@@ -13,7 +13,7 @@ function processWelcomeMessage(template: string, user: GuildMember, ticketId: nu
 
 export class TicketManager {
   client: Client;
-  closeReasons: Map<string, { reason: string; userId: string }> = new Map();
+  closeReasons: Map<string, { reason: string; userId: string; messageId?: string }> = new Map();
   
   constructor(client: Client) {
     this.client = client;
@@ -96,7 +96,16 @@ export class TicketManager {
     row.addComponents(closeButton);
 
     try {
-      await (channel as TextChannel).send({ embeds: [embed], components: [row as any] });
+      let staffRoleMention = '@staff';
+      if (settings?.allowedRoles) {
+        try {
+          const roleIds = JSON.parse(settings.allowedRoles);
+          if (Array.isArray(roleIds) && roleIds.length > 0) {
+            staffRoleMention = roleIds.map(id => `<@&${id}>`).join(' ');
+          }
+        } catch {}
+      }
+      await (channel as TextChannel).send({ content: `${staffRoleMention} ${opener.toString()} has created a new ticket`, embeds: [embed], components: [row as any] });
     } catch (err) {
       await (channel as TextChannel).send({ content: description });
     }

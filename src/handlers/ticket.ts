@@ -124,26 +124,23 @@ export const close = async function (interaction: ChatInputCommandInteraction, c
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.reply({ embeds: [makeEmbed('You do not have permission to close this ticket.', undefined, interaction.guildId || undefined)], ephemeral: true });
   
-  const reason = interaction.options.getString('reason', false) || 'No reason provided';
+  const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
   
-  const acceptButton = new ButtonBuilder()
-    .setCustomId(`close_confirm:${ticket.id}`)
-    .setLabel('Accept')
-    .setStyle(ButtonStyle.Success);
+  const modal = new ModalBuilder()
+    .setCustomId(`close_reason_modal:${ticket.id}`)
+    .setTitle('Close Ticket');
   
-  const declineButton = new ButtonBuilder()
-    .setCustomId(`close_decline:${ticket.id}`)
-    .setLabel('Decline')
-    .setStyle(ButtonStyle.Danger);
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('close_reason')
+    .setLabel('Reason for closing')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setPlaceholder('Leave empty for "No reason provided"');
   
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(acceptButton, declineButton);
+  const row = new (ActionRowBuilder as any)().addComponents(reasonInput);
+  modal.addComponents(row);
   
-  await interaction.reply({
-    embeds: [makeEmbed(`Are you sure you want to close this ticket?\nReason: ${reason}`, undefined, interaction.guildId || undefined)],
-    components: [row]
-  });
-  
-  ctx.ticketManager.closeReasons.set(`${ticket.id}`, { reason, userId: interaction.user.id });
+  await interaction.showModal(modal);
 };
 
 export const rename = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

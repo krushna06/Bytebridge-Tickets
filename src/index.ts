@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials, InteractionType, ChannelType, PermissionFlagsBits, GuildMember, EmbedBuilder, ButtonStyle, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import TicketManager from './structures/TicketManager';
+import { makeEmbed } from './handlers/common';
 import {
   getTicketByChannel,
   getTicketById,
@@ -235,33 +236,25 @@ client.on('interactionCreate', async (interaction: any) => {
 
         if (prefix === 'ticket_close') {
           if (ticket.userId !== interaction.user.id && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
-          try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
           
-          const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-          const acceptButton = new ButtonBuilder()
-            .setCustomId(`close_confirm:${ticket.id}`)
-            .setLabel('Accept')
-            .setStyle(ButtonStyle.Success);
+          const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
           
-          const declineButton = new ButtonBuilder()
-            .setCustomId(`close_decline:${ticket.id}`)
-            .setLabel('Decline')
-            .setStyle(ButtonStyle.Danger);
+          const modal = new ModalBuilder()
+            .setCustomId(`close_reason_modal:${ticket.id}`)
+            .setTitle('Close Ticket');
           
-          const row = new ActionRowBuilder().addComponents(acceptButton, declineButton);
+          const reasonInput = new TextInputBuilder()
+            .setCustomId('close_reason')
+            .setLabel('Reason for closing')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setPlaceholder('Leave empty for "No reason provided"');
           
-          const reason = 'No reason provided';
-          const embed = new EmbedBuilder()
-            .setDescription(`Are you sure you want to close this ticket?\nReason: ${reason}`);
+          const row = new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput);
+          modal.addComponents(row);
           
-          await interaction.channel?.send({
-            embeds: [embed],
-            components: [row]
-          });
-          
-          ticketManager.closeReasons.set(`${ticket.id}`, { reason, userId: interaction.user.id });
-          
-          return await safeReply({ ephemeral: true, content: 'Close confirmation sent.' });
+          await interaction.showModal(modal);
+          return;
         }
       }
 
@@ -297,9 +290,18 @@ client.on('interactionCreate', async (interaction: any) => {
         
         ticketManager.closeReasons.delete(`${ticketId}`);
         
+        // Delete the close request message
         try {
-          await interaction.message?.edit({ components: [] });
-        } catch (e) {}
+          if (reasonData?.messageId) {
+            const channel = interaction.channel;
+            if (channel && (channel as any).isTextBased()) {
+              const msg = await (channel as any).messages.fetch(reasonData.messageId).catch(() => null);
+              if (msg) await msg.delete();
+            }
+          }
+        } catch (e) {
+          console.error('Failed to delete close request message', e);
+        }
         
         return await safeReply({ ephemeral: true, content: `Ticket closed.\nReason: ${reason}` });
       }
@@ -312,11 +314,20 @@ client.on('interactionCreate', async (interaction: any) => {
         
         try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
         
+        const reasonData = ticketManager.closeReasons.get(`${ticketId}`);
         ticketManager.closeReasons.delete(`${ticketId}`);
         
         try {
-          await interaction.message?.edit({ components: [] });
-        } catch (e) {}
+          if (reasonData?.messageId) {
+            const channel = interaction.channel;
+            if (channel && (channel as any).isTextBased()) {
+              const msg = await (channel as any).messages.fetch(reasonData.messageId).catch(() => null);
+              if (msg) await msg.delete();
+            }
+          }
+        } catch (e) {
+          console.error('Failed to delete close request message', e);
+        }
         
         return await safeReply({ ephemeral: true, content: 'Close cancelled.' });
       }
@@ -338,6 +349,49 @@ client.on('interactionCreate', async (interaction: any) => {
       };
 
       const modalId = String(interaction.customId || '');
+      
+      if (modalId.startsWith('close_reason_modal:')) {
+        const ticketId = Number(modalId.split(':')[1]);
+        const ticket = getTicketById(ticketId);
+        if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
+        if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This modal does not belong to this channel.' });
+        
+        const reason = interaction.fields.getTextInputValue('close_reason').trim() || 'No reason provided';
+        
+        const { ActionRowBuilder: ButtonActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        const acceptButton = new ButtonBuilder()
+          .setCustomId(`close_confirm:${ticket.id}`)
+          .setLabel('Accept')
+          .setStyle(ButtonStyle.Success);
+        
+        const declineButton = new ButtonBuilder()
+          .setCustomId(`close_decline:${ticket.id}`)
+          .setLabel('Decline')
+          .setStyle(ButtonStyle.Danger);
+        
+        const row = new ButtonActionRowBuilder().addComponents(acceptButton, declineButton);
+        
+        const ticketOwner = await interaction.guild?.members.fetch(ticket.userId).catch(() => null);
+        
+        try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
+        
+        try {
+          const channel = interaction.channel;
+          if (channel && (channel as any).isTextBased()) {
+            const msg = await (channel as any).send({
+              content: `${ticketOwner ? ticketOwner.toString() : `<@${ticket.userId}>`} A close request has been made:`,
+              embeds: [makeEmbed(`Are you sure you want to close this ticket?\nReason: ${reason}`, undefined, interaction.guildId || undefined)],
+              components: [row]
+            });
+            ticketManager.closeReasons.set(`${ticket.id}`, { reason, userId: interaction.user.id, messageId: msg.id });
+          }
+        } catch (e) {
+          console.error('Failed to send close request message', e);
+        }
+        
+        return await safeReply({ ephemeral: true, content: 'Close request sent.' });
+      }
+
       if (!modalId.startsWith('ticket_form:')) return;
 
       const parts = modalId.split(':');
