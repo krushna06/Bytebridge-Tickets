@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS category_questions (
   question TEXT NOT NULL,
   placeholder TEXT,
   required INTEGER DEFAULT 1,
+  inputType TEXT DEFAULT 'short',
   order_index INTEGER DEFAULT 0,
   createdAt INTEGER NOT NULL,
   FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE
@@ -237,6 +238,14 @@ try {
   const colsGuildSettings = (infoGuildSettings || []).map((c: any) => c.name);
   if (!colsGuildSettings.includes('channelPrefix')) {
     db.prepare("ALTER TABLE guild_settings ADD COLUMN channelPrefix TEXT DEFAULT '{category}-{count}'").run();
+  }
+} catch (e) { /* ignore */ }
+
+try {
+  const infoCategoryQuestions = db.prepare("PRAGMA table_info(category_questions)").all();
+  const colsCategoryQuestions = (infoCategoryQuestions || []).map((c: any) => c.name);
+  if (!colsCategoryQuestions.includes('inputType')) {
+    db.prepare("ALTER TABLE category_questions ADD COLUMN inputType TEXT DEFAULT 'short'").run();
   }
 } catch (e) { /* ignore */ }
 
@@ -600,9 +609,9 @@ export function getCategoryByDiscordId(guildId: string, discordCategoryId: strin
   return row ?? null;
 }
 
-export function createQuestion(categoryId: number, question: string, placeholder?: string | null, required = true, orderIndex = 0) {
-  const stmt = db.prepare('INSERT INTO category_questions (categoryId, question, placeholder, required, order_index, createdAt) VALUES (?, ?, ?, ?, ?, ?)');
-  const info = stmt.run(categoryId, question, placeholder || null, required ? 1 : 0, orderIndex, Date.now());
+export function createQuestion(categoryId: number, question: string, placeholder?: string | null, required = true, orderIndex = 0, inputType = 'short') {
+  const stmt = db.prepare('INSERT INTO category_questions (categoryId, question, placeholder, required, inputType, order_index, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const info = stmt.run(categoryId, question, placeholder || null, required ? 1 : 0, inputType, orderIndex, Date.now());
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
 }
 
@@ -617,7 +626,7 @@ export function getQuestion(questionId: number) {
   return row ?? null;
 }
 
-export function updateQuestion(questionId: number, updates: { question?: string; placeholder?: string | null; required?: boolean; order_index?: number }) {
+export function updateQuestion(questionId: number, updates: { question?: string; placeholder?: string | null; required?: boolean; order_index?: number; inputType?: string }) {
   const keys = Object.keys(updates).filter(k => updates[k as keyof typeof updates] !== undefined);
   if (!keys.length) return;
   const set = keys.map(k => `${k} = @${k}`).join(', ');

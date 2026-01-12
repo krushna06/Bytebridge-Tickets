@@ -104,7 +104,7 @@ client.on('interactionCreate', async (interaction: any) => {
       const input = new TextInputBuilder()
         .setCustomId(`question_${qIdx}`)
         .setLabel(q.question.substring(0, 45))
-        .setStyle(q.required ? TextInputStyle.Short : TextInputStyle.Paragraph)
+        .setStyle(q.inputType === 'long' ? TextInputStyle.Paragraph : TextInputStyle.Short)
         .setRequired(!!q.required);
       
       if (q.placeholder) {

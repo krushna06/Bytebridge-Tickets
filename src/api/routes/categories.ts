@@ -60,7 +60,7 @@ export function registerCategoryRoutes(app: any, requireKey: any) {
 
   app.post('/api/guilds/:guildId/categories/:categoryId/questions', requireKey, (req: any, res: any) => {
     const categoryId = Number(req.params.categoryId);
-    const { question, placeholder, required } = req.body || {};
+    const { question, placeholder, required, inputType } = req.body || {};
     try {
       if (!question || !question.trim()) {
         return res.status(400).json({ error: 'Question text is required' });
@@ -69,7 +69,7 @@ export function registerCategoryRoutes(app: any, requireKey: any) {
       if (questions.length >= 5) {
         return res.status(400).json({ error: 'Maximum 5 questions allowed per category' });
       }
-      const questionId = createQuestion(categoryId, question.trim(), placeholder || null, required !== false, questions.length);
+      const questionId = createQuestion(categoryId, question.trim(), placeholder || null, required !== false, questions.length, inputType || 'short');
       res.json({ ok: true, id: questionId });
     } catch (err: any) {
       console.error('Error creating question', err);
@@ -79,7 +79,7 @@ export function registerCategoryRoutes(app: any, requireKey: any) {
 
   app.put('/api/guilds/:guildId/categories/:categoryId/questions/:questionId', requireKey, (req: any, res: any) => {
     const questionId = Number(req.params.questionId);
-    const { question, placeholder, required, order_index } = req.body || {};
+    const { question, placeholder, required, order_index, inputType } = req.body || {};
     try {
       if (!question || !question.trim()) {
         return res.status(400).json({ error: 'Question text is required' });
@@ -88,7 +88,8 @@ export function registerCategoryRoutes(app: any, requireKey: any) {
         question: question.trim(),
         placeholder: placeholder || null,
         required: required !== false,
-        order_index
+        order_index,
+        inputType: inputType || 'short'
       });
       res.json({ ok: true });
     } catch (err: any) {

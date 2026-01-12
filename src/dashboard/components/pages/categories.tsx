@@ -12,6 +12,7 @@ interface Question {
   question: string
   placeholder?: string | null
   required: boolean
+  inputType?: 'short' | 'long'
   order_index: number
 }
 
@@ -52,6 +53,8 @@ export function Categories() {
   const [newQuestion, setNewQuestion] = useState("")
   const [newQuestionPlaceholder, setNewQuestionPlaceholder] = useState("")
   const [newQuestionRequired, setNewQuestionRequired] = useState(true)
+  const [newQuestionInputType, setNewQuestionInputType] = useState<'short' | 'long'>('short')
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
 
   const fetchCategories = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -203,16 +206,34 @@ export function Categories() {
     setNewQuestion("")
     setNewQuestionPlaceholder("")
     setNewQuestionRequired(true)
+    setNewQuestionInputType('short')
+    setEditingQuestionId(null)
+  }
+
+  const handleEditQuestion = (question: Question) => {
+    setEditingQuestionId(question.id)
+    setNewQuestion(question.question)
+    setNewQuestionPlaceholder(question.placeholder || "")
+    setNewQuestionRequired(question.required)
+    setNewQuestionInputType(question.inputType || 'short')
+  }
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionId(null)
+    setNewQuestion("")
+    setNewQuestionPlaceholder("")
+    setNewQuestionRequired(true)
+    setNewQuestionInputType('short')
   }
 
   const handleAddQuestion = async (categoryId: string) => {
     if (!newQuestion.trim()) return
-    if (questions.length >= 5) {
+    if (!editingQuestionId && questions.length >= 5) {
       alert("Maximum 5 questions allowed per category")
       return
     }
 
-    setActionLoading(`question-add-${categoryId}`)
+    setActionLoading(`question-${editingQuestionId ? 'edit' : 'add'}-${categoryId}`)
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
     const guildId = process.env.NEXT_PUBLIC_GUILD_ID
     const apiKey = process.env.NEXT_PUBLIC_DASHBOARD_API_KEY
@@ -220,31 +241,50 @@ export function Categories() {
     if (apiKey) headers["X-API-KEY"] = apiKey
 
     try {
-      const res = await fetch(`${apiBase}/api/guilds/${guildId}/categories/${categoryId}/questions`, {
-        method: "POST",
+      const url = editingQuestionId
+        ? `${apiBase}/api/guilds/${guildId}/categories/${categoryId}/questions/${editingQuestionId}`
+        : `${apiBase}/api/guilds/${guildId}/categories/${categoryId}/questions`
+      const method = editingQuestionId ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers,
         body: JSON.stringify({
           question: newQuestion,
           placeholder: newQuestionPlaceholder || null,
           required: newQuestionRequired,
+          inputType: newQuestionInputType,
         }),
       })
       if (res.ok) {
-        const data = await res.json()
-        const newQ: Question = {
-          id: String(data.id),
-          question: newQuestion,
-          placeholder: newQuestionPlaceholder || null,
-          required: newQuestionRequired,
-          order_index: questions.length,
+        if (editingQuestionId) {
+          // Update existing question in the list
+          setQuestions(questions.map(q => 
+            q.id === editingQuestionId 
+              ? { ...q, question: newQuestion, placeholder: newQuestionPlaceholder || null, required: newQuestionRequired, inputType: newQuestionInputType }
+              : q
+          ))
+          handleCancelEditQuestion()
+        } else {
+          // Add new question
+          const data = await res.json()
+          const newQ: Question = {
+            id: String(data.id),
+            question: newQuestion,
+            placeholder: newQuestionPlaceholder || null,
+            required: newQuestionRequired,
+            inputType: newQuestionInputType,
+            order_index: questions.length,
+          }
+          setQuestions([...questions, newQ])
+          setNewQuestion("")
+          setNewQuestionPlaceholder("")
+          setNewQuestionRequired(true)
+          setNewQuestionInputType('short')
         }
-        setQuestions([...questions, newQ])
-        setNewQuestion("")
-        setNewQuestionPlaceholder("")
-        setNewQuestionRequired(true)
       }
     } catch (err) {
-      console.error("Error adding question:", err)
+      console.error("Error adding/updating question:", err)
     } finally {
       setActionLoading(null)
     }
@@ -280,6 +320,8 @@ export function Categories() {
     setNewQuestion("")
     setNewQuestionPlaceholder("")
     setNewQuestionRequired(true)
+    setNewQuestionInputType('short')
+    setEditingQuestionId(null)
     fetchCategories()
   }
 
@@ -448,16 +490,27 @@ export function Categories() {
                           <div className="flex-1">
                             <p className="text-sm font-medium">{q.question}</p>
                             {q.placeholder && <p className="text-xs text-muted-foreground">Placeholder: {q.placeholder}</p>}
-                            <p className="text-xs text-muted-foreground">{q.required ? "Required" : "Optional"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {q.required ? "Required" : "Optional"} • {q.inputType === 'long' ? "Paragraph" : "Short"}
+                            </p>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteQuestion(category.id, q.id)}
-                            disabled={actionLoading === `question-delete-${q.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditQuestion(q)}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteQuestion(category.id, q.id)}
+                              disabled={actionLoading === `question-delete-${q.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -466,7 +519,7 @@ export function Categories() {
                   {questions.length < 5 && (
                     <div className="space-y-3 p-3 bg-muted rounded-md">
                       <div>
-                        <label className="text-sm font-medium">Question</label>
+                        <label className="text-sm font-medium">{editingQuestionId ? "Edit Question" : "New Question"}</label>
                         <Input
                           placeholder="e.g., What is your issue about?"
                           value={newQuestion}
@@ -495,14 +548,36 @@ export function Categories() {
                           Required
                         </label>
                       </div>
-                      <Button
-                        onClick={() => handleAddQuestion(category.id)}
-                        disabled={actionLoading === `question-add-${category.id}` || !newQuestion.trim()}
-                        className="w-full gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Question
-                      </Button>
+                      <div>
+                        <label className="text-sm font-medium">Input Type</label>
+                        <select
+                          value={newQuestionInputType}
+                          onChange={(e) => setNewQuestionInputType(e.target.value as 'short' | 'long')}
+                          className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm mt-1"
+                        >
+                          <option value="short">Short (Single Line)</option>
+                          <option value="long">Long (Paragraph)</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleAddQuestion(category.id)}
+                          disabled={actionLoading?.startsWith('question-') || !newQuestion.trim()}
+                          className="flex-1 gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          {editingQuestionId ? "Update Question" : "Add Question"}
+                        </Button>
+                        {editingQuestionId && (
+                          <Button
+                            variant="outline"
+                            onClick={handleCancelEditQuestion}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
