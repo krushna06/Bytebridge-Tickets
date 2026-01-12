@@ -68,7 +68,9 @@ export function Panels() {
           buttons: Array.isArray(p.buttons)
             ? p.buttons.map((b: any) => ({ 
                 label: b && (b.label || b),
-                categoryId: b?.categoryId || null
+                categoryId: b?.categoryId || null,
+                color: b?.color || null,
+                emoji: b?.emoji || null
               }))
             : [],
           channelId: p.channelId || null,

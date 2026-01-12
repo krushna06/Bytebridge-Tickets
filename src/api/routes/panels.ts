@@ -101,6 +101,20 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
               });
               await message.edit({ embeds: [embed], components: [row as any] });
             }
+            
+            if ((panel as any).statsMessageId) {
+              try {
+                const statsMessage = await channel.messages.fetch((panel as any).statsMessageId);
+                if (statsMessage) {
+                  const { createStatsEmbed } = await import('../../handlers/panels');
+                  const updatedPanel = getPanelById(panelId);
+                  const statsEmbed = createStatsEmbed(req.params.guildId, (updatedPanel as any)?.embedColor || undefined);
+                  await statsMessage.edit({ embeds: [statsEmbed] });
+                }
+              } catch (err: any) {
+                console.warn(`Failed to update stats message in Discord: ${err?.message}`);
+              }
+            }
           }
         } catch (err: any) {
           console.warn(`Failed to update panel message in Discord: ${err?.message}`);
