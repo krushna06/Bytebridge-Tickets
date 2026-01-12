@@ -21,9 +21,9 @@ export function registerMemberRoutes(app: any, requireKey: any) {
       const canManageGuild = member.permissions.has("ManageGuild")
 
       const roles = member.roles.cache
-        .filter((r) => r.id !== guild.id)
-        .sort((a, b) => b.position - a.position)
-        .map((r) => ({ id: r.id, name: r.name, position: r.position, color: r.color }))
+        .filter((r: any) => r.id !== guild.id)
+        .sort((a: any, b: any) => b.position - a.position)
+        .map((r: any) => ({ id: r.id, name: r.name, position: r.position, color: r.color }))
 
       const topRole = roles.length > 0 ? roles[0].name : "Unknown"
 

@@ -632,7 +632,7 @@ client.on('interactionCreate', async (interaction: any) => {
       const user = interaction.options.getUser('user', true);
       const profile = getProfile(interaction.guildId!, user.id);
       if (!profile) return interaction.editReply({ content: 'No profile.' });
-      return interaction.editReply({ content: `Profile for ${user.tag}: ${profile.displayName || ''} - ${profile.bio || ''}` });
+      return interaction.editReply({ content: `Profile for ${user.tag}: ${profile.bio || ''}` });
     }
 
     // --- Ticket ---
