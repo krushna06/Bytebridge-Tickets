@@ -154,6 +154,12 @@ try {
   if (!cols.includes('logsChannelId')) {
     db.prepare('ALTER TABLE guild_settings ADD COLUMN logsChannelId TEXT').run();
   }
+  if (!cols.includes('ticketChannelId')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN ticketChannelId TEXT').run();
+  }
+  if (!cols.includes('logsChannelId')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN logsChannelId TEXT').run();
+  }
 } catch (e) { /* ignore */ }
 
 try {
@@ -384,10 +390,10 @@ export function listTags(guildId: string){
 }
 
 
-type PanelButton = { label: string; categoryId?: string | null; categoryDbId?: number | null };
+type PanelButton = { label: string; categoryId?: string | null; categoryDbId?: number | null; color?: string | null; emoji?: string | null };
 
 export function createPanel(guildId: string, title: string | null, creatorId: string | null, buttons: Array<string | PanelButton>, embedColor?: string | null, description?: string | null, includeStats?: boolean){
-  const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null, categoryDbId: null } : { label: b.label, categoryId: b.categoryId ?? null, categoryDbId: b.categoryDbId ?? null });
+  const normalized = buttons.map(b => typeof b === 'string' ? { label: b, categoryId: null, categoryDbId: null, color: null, emoji: null } : { label: b.label, categoryId: b.categoryId ?? null, categoryDbId: b.categoryDbId ?? null, color: b.color ?? null, emoji: b.emoji ?? null });
   const stmt = db.prepare('INSERT INTO panels (guildId,title,description,creatorId,buttons,createdAt,embedColor,includeStats) VALUES (?,?,?,?,?,?,?,?)');
   const info = stmt.run(guildId, title || null, description || null, creatorId || null, JSON.stringify(normalized), Date.now(), embedColor || null, includeStats ? 1 : 0);
   return Number((info as any).lastInsertRowid || info.lastInsertRowid);
@@ -400,8 +406,7 @@ export function getLatestPanelForGuild(guildId: string){
   if (!row) return null;
   let parsed: any;
   try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
-  // normalize elements to PanelButton
-  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null });
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null, color: null, emoji: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null, color: p.color ?? null, emoji: p.emoji ?? null });
   return { ...row, buttons };
 }
 
@@ -412,7 +417,7 @@ export function getPanelById(id: number){
   if (!row) return null;
   let parsed: any;
   try { parsed = JSON.parse(row.buttons); } catch { parsed = []; }
-  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null });
+  const buttons: PanelButton[] = (parsed || []).map((p: any) => typeof p === 'string' ? { label: p, categoryId: null, categoryDbId: null, color: null, emoji: null } : { label: p.label || String(p), categoryId: p.categoryId ?? null, categoryDbId: p.categoryDbId ?? null, color: p.color ?? null, emoji: p.emoji ?? null });
   return { ...row, buttons };
 }
 

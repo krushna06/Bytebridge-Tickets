@@ -140,7 +140,13 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
         const row = new ActionRowBuilder<ButtonBuilder>();
         panel.buttons.slice(0,5).forEach((b: any, idx: number) => {
           const label = (b && (b.label || b)) || `Category ${idx + 1}`;
-          const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+          const emoji = b?.emoji || null;
+          const color = b?.color || 'Primary';
+          const btn = new ButtonBuilder()
+            .setCustomId(`panel_open:${panel.id}:${idx}`)
+            .setLabel(label)
+            .setStyle((ButtonStyle as any)[color] || ButtonStyle.Primary);
+          if (emoji) btn.setEmoji(emoji);
           row.addComponents(btn as any);
         });
         const sent = await postChannel.send({ embeds: [embed], components: [row as any] });
@@ -207,7 +213,13 @@ export const sendpanel = async function (interaction: ChatInputCommandInteractio
   const row = new ActionRowBuilder<ButtonBuilder>();
   panel.buttons.slice(0,5).forEach((b: any, idx: number) => {
     const label = (b && (b.label || b)) || `Category ${idx + 1}`;
-    const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+    const emoji = b?.emoji || null;
+    const color = b?.color || 'Primary';
+    const btn = new ButtonBuilder()
+      .setCustomId(`panel_open:${panel.id}:${idx}`)
+      .setLabel(label)
+      .setStyle((ButtonStyle as any)[color] || ButtonStyle.Primary);
+    if (emoji) btn.setEmoji(emoji);
     row.addComponents(btn as any);
   });
   const sent = await channel.send({ embeds: [embed], components: [row as any] });

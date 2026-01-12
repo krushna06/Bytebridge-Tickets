@@ -10,19 +10,26 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
 
   app.post('/api/guilds/:guildId/panels', requireKey, (req: any, res: any) => {
     const guildId = req.params.guildId;
-    const { title, description, embedColor, categoryIds } = req.body || {};
+    const { title, description, embedColor, categoryIds, buttons } = req.body || {};
     try {
       if (!categoryIds || categoryIds.length === 0) {
         return res.status(400).json({ error: 'At least one category is required' });
       }
-      const buttons = categoryIds.map((catId: string) => {
+      let panelButtons = categoryIds.map((catId: string) => {
         const category = getCategoryById(Number(catId));
         const label = category ? category.name : `Category ${catId}`;
         const discordCategoryId = category ? category.discordCategoryId : null;
         const categoryDbId = category ? category.id : null;
-        return { label, categoryId: discordCategoryId, categoryDbId };
+        const buttonConfig = buttons && buttons[catId];
+        return { 
+          label, 
+          categoryId: discordCategoryId, 
+          categoryDbId,
+          color: buttonConfig?.color || null,
+          emoji: buttonConfig?.emoji || null
+        };
       });
-      const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', buttons, embedColor || null, description || null);
+      const panelId = createPanel(guildId, title || 'Ticket Panel', 'dashboard', panelButtons, embedColor || null, description || null);
       res.json({ ok: true, id: panelId });
     } catch (err: any) {
       console.error('Error creating panel', err);
@@ -49,7 +56,14 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
           const label = category ? category.name : `Category ${catId}`;
           const discordCategoryId = category ? category.discordCategoryId : null;
           const categoryDbId = category ? category.id : null;
-          return { label, categoryId: discordCategoryId, categoryDbId };
+          const buttonConfig = req.body.buttons && req.body.buttons[catId];
+          return { 
+            label, 
+            categoryId: discordCategoryId, 
+            categoryDbId,
+            color: buttonConfig?.color || null,
+            emoji: buttonConfig?.emoji || null
+          };
         });
         updates.buttons = JSON.stringify(buttons);
       }
@@ -76,7 +90,13 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
               const buttons = updatedPanel?.buttons || [];
               buttons.slice(0, 5).forEach((b: any, idx: number) => {
                 const label = (b && (b.label || b)) || `Category ${idx + 1}`;
-                const btn = new ButtonBuilder().setCustomId(`panel_open:${panelId}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+                const emoji = b?.emoji || null;
+                const color = b?.color || 'Primary';
+                const btn = new ButtonBuilder()
+                  .setCustomId(`panel_open:${panelId}:${idx}`)
+                  .setLabel(label)
+                  .setStyle((ButtonStyle as any)[color] || ButtonStyle.Primary);
+                if (emoji) btn.setEmoji(emoji);
                 row.addComponents(btn as any);
               });
               await message.edit({ embeds: [embed], components: [row as any] });
@@ -119,7 +139,13 @@ export function registerPanelRoutes(app: any, requireKey: any, ticketManager: Ti
       const row = new ActionRowBuilder<any>();
       panel.buttons.slice(0, 5).forEach((b: any, idx: number) => {
         const label = (b && (b.label || b)) || `Category ${idx + 1}`;
-        const btn = new ButtonBuilder().setCustomId(`panel_open:${panel.id}:${idx}`).setLabel(label).setStyle(ButtonStyle.Primary as any);
+        const emoji = b?.emoji || null;
+        const color = b?.color || 'Primary';
+        const btn = new ButtonBuilder()
+          .setCustomId(`panel_open:${panel.id}:${idx}`)
+          .setLabel(label)
+          .setStyle((ButtonStyle as any)[color] || ButtonStyle.Primary);
+        if (emoji) btn.setEmoji(emoji);
         row.addComponents(btn as any);
       });
       const sent = await channel.send({ embeds: [embed], components: [row as any] });

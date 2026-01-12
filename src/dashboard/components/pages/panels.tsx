@@ -13,7 +13,7 @@ interface Panel {
   description?: string
   embedColor?: string
   createdAt: string
-  buttons: { label: string; categoryId?: string | null }[]
+  buttons: { label: string; categoryId?: string | null; color?: string | null; emoji?: string | null }[]
   channelId?: string | null
   messageId?: string | null
   includeStats?: number
@@ -42,6 +42,7 @@ export function Panels() {
   const [newPanelDescription, setNewPanelDescription] = useState("")
   const [newPanelColor, setNewPanelColor] = useState("#5865f2")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [buttonConfigs, setButtonConfigs] = useState<Record<string, { color: string; emoji: string }>>({})
   const [sendingPanelId, setSendingPanelId] = useState<string | null>(null)
   const [selectedChannel, setSelectedChannel] = useState<string>("")
   const [includeStats, setIncludeStats] = useState(false)
@@ -168,7 +169,8 @@ export function Panels() {
           title: newPanelTitle,
           description: newPanelDescription,
           embedColor: newPanelColor,
-          categoryIds: selectedCategories
+          categoryIds: selectedCategories,
+          buttons: buttonConfigs
         }),
       })
       if (res.ok) {
@@ -176,6 +178,7 @@ export function Panels() {
         setNewPanelDescription("")
         setNewPanelColor("#5865f2")
         setSelectedCategories([])
+        setButtonConfigs({})
         setShowCreateForm(false)
         fetchPanels()
       }
@@ -227,6 +230,18 @@ export function Panels() {
       })
       .filter((id): id is string => id !== null)
     setSelectedCategories(categoryIds)
+    
+    const configs: Record<string, { color: string; emoji: string }> = {}
+    panel.buttons.forEach((b, idx) => {
+      const cat = categories.find(c => c.name === b.label)
+      if (cat) {
+        configs[cat.id] = {
+          color: b.color || 'Primary',
+          emoji: b.emoji || ''
+        }
+      }
+    })
+    setButtonConfigs(configs)
   }
 
   const handleSaveEdit = async (panelId: string) => {
@@ -245,7 +260,8 @@ export function Panels() {
           title: newPanelTitle,
           description: newPanelDescription,
           embedColor: newPanelColor,
-          categoryIds: selectedCategories
+          categoryIds: selectedCategories,
+          buttons: buttonConfigs
         }),
       })
       if (res.ok) {
@@ -254,6 +270,7 @@ export function Panels() {
         setNewPanelDescription("")
         setNewPanelColor("#5865f2")
         setSelectedCategories([])
+        setButtonConfigs({})
         fetchPanels()
       }
     } catch (err) {
@@ -269,6 +286,7 @@ export function Panels() {
     setNewPanelDescription("")
     setNewPanelColor("#5865f2")
     setSelectedCategories([])
+    setButtonConfigs({})
   }
 
   const toggleCategory = (categoryId: string) => {
@@ -351,6 +369,54 @@ export function Panels() {
                   )}
                 </div>
               </div>
+              {selectedCategories.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Button Customization</label>
+                  <div className="space-y-3 bg-muted p-3 rounded-md">
+                    {selectedCategories.map((catId) => {
+                      const category = categories.find(c => c.id === catId)
+                      const config = buttonConfigs[catId] || { color: 'Primary', emoji: '' }
+                      return (
+                        <div key={catId} className="space-y-2 p-2 bg-background rounded border border-input">
+                          <p className="text-sm font-medium">{category?.name}</p>
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">Button Color</label>
+                              <select
+                                value={config.color}
+                                onChange={(e) => setButtonConfigs(prev => ({
+                                  ...prev,
+                                  [catId]: { ...config, color: e.target.value }
+                                }))}
+                                className="w-full px-2 py-1 bg-background border border-input rounded text-sm mt-1"
+                              >
+                                <option value="Primary">Primary (Blue)</option>
+                                <option value="Secondary">Secondary (Gray)</option>
+                                <option value="Success">Success (Green)</option>
+                                <option value="Danger">Danger (Red)</option>
+                              </select>
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">Emoji</label>
+                              <input
+                                type="text"
+                                placeholder="e.g., 🎫"
+                                value={config.emoji}
+                                onChange={(e) => setButtonConfigs(prev => ({
+                                  ...prev,
+                                  [catId]: { ...config, emoji: e.target.value }
+                                }))}
+                                className="w-full px-2 py-1 bg-background border border-input rounded text-sm mt-1"
+                                maxLength={2}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button 
                   onClick={handleCreatePanel} 
@@ -465,6 +531,54 @@ export function Panels() {
                       )}
                     </div>
                   </div>
+                  {selectedCategories.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Button Customization</label>
+                      <div className="space-y-3 bg-background p-3 rounded-md border border-input">
+                        {selectedCategories.map((catId) => {
+                          const category = categories.find(c => c.id === catId)
+                          const config = buttonConfigs[catId] || { color: 'Primary', emoji: '' }
+                          return (
+                            <div key={catId} className="space-y-2 p-2 bg-muted rounded border border-input">
+                              <p className="text-sm font-medium">{category?.name}</p>
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <label className="text-xs text-muted-foreground">Button Color</label>
+                                  <select
+                                    value={config.color}
+                                    onChange={(e) => setButtonConfigs(prev => ({
+                                      ...prev,
+                                      [catId]: { ...config, color: e.target.value }
+                                    }))}
+                                    className="w-full px-2 py-1 bg-background border border-input rounded text-sm mt-1"
+                                  >
+                                    <option value="Primary">Primary (Blue)</option>
+                                    <option value="Secondary">Secondary (Gray)</option>
+                                    <option value="Success">Success (Green)</option>
+                                    <option value="Danger">Danger (Red)</option>
+                                  </select>
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-xs text-muted-foreground">Emoji</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g., 🎫"
+                                    value={config.emoji}
+                                    onChange={(e) => setButtonConfigs(prev => ({
+                                      ...prev,
+                                      [catId]: { ...config, emoji: e.target.value }
+                                    }))}
+                                    className="w-full px-2 py-1 bg-background border border-input rounded text-sm mt-1"
+                                    maxLength={2}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
