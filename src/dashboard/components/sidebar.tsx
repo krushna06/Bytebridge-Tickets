@@ -14,13 +14,13 @@ interface SidebarProps {
 
 const menuItems = [
   { id: "home" as Page, label: "Home", icon: Home },
-  { id: "profile" as Page, label: "My Profile", icon: User },
-  { id: "leaderboard" as Page, label: "Leaderboard", icon: Trophy },
-  { id: "settings" as Page, label: "Settings", icon: Settings },
   { id: "tickets" as Page, label: "Tickets", icon: Ticket },
   { id: "categories" as Page, label: "Categories", icon: Tag },
   { id: "panels" as Page, label: "Panels", icon: LayoutGrid },
   { id: "logs" as Page, label: "Logs", icon: History },
+  { id: "settings" as Page, label: "Settings", icon: Settings },
+  { id: "profile" as Page, label: "My Profile", icon: User },
+  { id: "leaderboard" as Page, label: "Leaderboard", icon: Trophy },
 ]
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
