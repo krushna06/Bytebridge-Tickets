@@ -2,6 +2,21 @@ import { ChatInputCommandInteraction } from 'discord.js';
 import { createOrUpdateProfile, getProfile, getLeaderboard, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild, getGuildSettings } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
+function isStaffUser(userId: string, guildId: string, client: any): boolean {
+  try {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return false;
+    
+    const member = guild.members.cache.get(userId);
+    if (!member) return false;
+    
+    const settings = getGuildSettings(guildId);
+    return isStaffFromSettings(member, settings);
+  } catch (e) {
+    return false;
+  }
+}
+
 export const leaderboard = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
   const sortBy = interaction.options.getString('sort') || 'resolved';
@@ -9,6 +24,7 @@ export const leaderboard = async function (interaction: ChatInputCommandInteract
   const guildId = interaction.guildId!;
 
   const db = require('../lib/database').default;
+  const settings = getGuildSettings(guildId);
 
   let query = '';
   let title = '';
@@ -63,17 +79,19 @@ export const leaderboard = async function (interaction: ChatInputCommandInteract
   const stmt = db.prepare(query);
   const rows = stmt.all(guildId, limit) as any[];
 
-  if (!rows.length) {
+  const staffRows = rows.filter(r => isStaffUser(r.userId, guildId, ctx.client));
+
+  if (!staffRows.length) {
     return interaction.editReply({ embeds: [makeEmbed('No stats yet.', undefined, guildId)] });
   }
 
   let out = '';
   if (sortBy === 'feedback') {
-    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${(r.value || 0).toFixed(1)}/5`).join('\n');
+    out = staffRows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${(r.value || 0).toFixed(1)}/5`).join('\n');
   } else if (sortBy === 'response' || sortBy === 'resolve') {
-    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${formatMs(r.value)}`).join('\n');
+    out = staffRows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${formatMs(r.value)}`).join('\n');
   } else {
-    out = rows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${r.value || 0} tickets`).join('\n');
+    out = staffRows.map((r: any, i: number) => `${i + 1}. <@${r.userId}> - ${r.value || 0} tickets`).join('\n');
   }
 
   return interaction.editReply({ embeds: [makeEmbed(`${title}\n\n${out}`, undefined, guildId)] });
@@ -91,6 +109,8 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
   await interaction.deferReply({ ephemeral: true });
   const total = countTicketsByGuild(interaction.guildId!);
   const open = countOpenTicketsByGuild(interaction.guildId!);
+  const guildId = interaction.guildId!;
+  const settings = getGuildSettings(guildId);
 
   const db = require('../lib/database').default;
 
@@ -100,16 +120,47 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
     INNER JOIN ticket_meta tm ON t.id = tm.ticketId
     WHERE t.guildId = ? AND tm.claimedBy IS NOT NULL AND t.closedAt IS NOT NULL
   `);
-  const responseTimeResult = responseTimeStmt.get(interaction.guildId!) as any;
-  const avgResponseMs = responseTimeResult?.avgResponseTime ? Math.round(responseTimeResult.avgResponseTime) : null;
+  const responseTimeResult = responseTimeStmt.get(guildId) as any;
+  let avgResponseMs = responseTimeResult?.avgResponseTime ? Math.round(responseTimeResult.avgResponseTime) : null;
 
   const resolveTimeStmt = db.prepare(`
     SELECT AVG(t.closedAt - t.createdAt) as avgResolveTime
     FROM tickets t
     WHERE t.guildId = ? AND t.closedAt IS NOT NULL
   `);
-  const resolveTimeResult = resolveTimeStmt.get(interaction.guildId!) as any;
-  const avgResolveMs = resolveTimeResult?.avgResolveTime ? Math.round(resolveTimeResult.avgResolveTime) : null;
+  const resolveTimeResult = resolveTimeStmt.get(guildId) as any;
+  let avgResolveMs = resolveTimeResult?.avgResolveTime ? Math.round(resolveTimeResult.avgResolveTime) : null;
+
+  if (avgResponseMs !== null) {
+    const allResponseStmt = db.prepare(`
+      SELECT tm.claimedBy as userId, AVG(t.closedAt - t.createdAt) as avgTime
+      FROM tickets t
+      INNER JOIN ticket_meta tm ON t.id = tm.ticketId
+      WHERE t.guildId = ? AND tm.claimedBy IS NOT NULL AND t.closedAt IS NOT NULL
+      GROUP BY tm.claimedBy
+    `);
+    const allResponseRows = allResponseStmt.all(guildId) as any[];
+    const staffResponseRows = allResponseRows.filter(r => isStaffUser(r.userId, guildId, ctx.client));
+    if (staffResponseRows.length > 0) {
+      const totalTime = staffResponseRows.reduce((sum, r) => sum + r.avgTime, 0);
+      avgResponseMs = Math.round(totalTime / staffResponseRows.length);
+    }
+  }
+
+  if (avgResolveMs !== null) {
+    const allResolveStmt = db.prepare(`
+      SELECT t.closedBy as userId, AVG(t.closedAt - t.createdAt) as avgTime
+      FROM tickets t
+      WHERE t.guildId = ? AND t.closedAt IS NOT NULL AND t.closedBy IS NOT NULL
+      GROUP BY t.closedBy
+    `);
+    const allResolveRows = allResolveStmt.all(guildId) as any[];
+    const staffResolveRows = allResolveRows.filter(r => isStaffUser(r.userId, guildId, ctx.client));
+    if (staffResolveRows.length > 0) {
+      const totalTime = staffResolveRows.reduce((sum, r) => sum + r.avgTime, 0);
+      avgResolveMs = Math.round(totalTime / staffResolveRows.length);
+    }
+  }
 
   const target = interaction.options.getUser('user', false);
   if (target) {
@@ -121,7 +172,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
       INNER JOIN ticket_meta tm ON t.id = tm.ticketId
       WHERE t.guildId = ? AND tm.claimedBy = ? AND t.closedAt IS NOT NULL
     `);
-    const userResponseResult = userResponseStmt.get(interaction.guildId!, uid) as any;
+    const userResponseResult = userResponseStmt.get(guildId, uid) as any;
     const avgUserResponseMs = userResponseResult?.avgResponseTime ? Math.round(userResponseResult.avgResponseTime) : null;
 
     const userResolveStmt = db.prepare(`
@@ -129,17 +180,16 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
       FROM tickets t
       WHERE t.guildId = ? AND t.closedBy = ? AND t.closedAt IS NOT NULL
     `);
-    const userResolveResult = userResolveStmt.get(interaction.guildId!, uid) as any;
+    const userResolveResult = userResolveStmt.get(guildId, uid) as any;
     const avgUserResolveMs = userResolveResult?.avgResolveTime ? Math.round(userResolveResult.avgResolveTime) : null;
 
-    // Count of tickets claimed by user
     const userClaimedStmt = db.prepare(`
       SELECT COUNT(*) as count
       FROM tickets t
       INNER JOIN ticket_meta tm ON t.id = tm.ticketId
       WHERE t.guildId = ? AND tm.claimedBy = ? AND t.closedAt IS NOT NULL
     `);
-    const userClaimedResult = userClaimedStmt.get(interaction.guildId!, uid) as any;
+    const userClaimedResult = userClaimedStmt.get(guildId, uid) as any;
     const userClaimedCount = userClaimedResult?.count || 0;
 
     const userClosedStmt = db.prepare(`
@@ -147,7 +197,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
       FROM tickets t
       WHERE t.guildId = ? AND t.closedBy = ? AND t.closedAt IS NOT NULL
     `);
-    const userClosedResult = userClosedStmt.get(interaction.guildId!, uid) as any;
+    const userClosedResult = userClosedStmt.get(guildId, uid) as any;
     const userClosedCount = userClosedResult?.count || 0;
 
     const lines = [
@@ -157,7 +207,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
       `Avg response: ${formatMs(avgUserResponseMs)} (${userClaimedCount} first-responses)`,
       `Avg resolve: ${formatMs(avgUserResolveMs)} (${userClosedCount} closes)`
     ];
-    return interaction.editReply({ embeds: [makeEmbed(lines.join('\n'), undefined, interaction.guildId || undefined)] });
+    return interaction.editReply({ embeds: [makeEmbed(lines.join('\n'), undefined, guildId)] });
   }
 
   const out = [
@@ -165,7 +215,7 @@ export const stats = async function (interaction: ChatInputCommandInteraction, c
     `Avg response time: ${formatMs(avgResponseMs)}`,
     `Avg resolve time: ${formatMs(avgResolveMs)}`
   ];
-  return interaction.editReply({ embeds: [makeEmbed(out.join('\n'), undefined, interaction.guildId || undefined)] });
+  return interaction.editReply({ embeds: [makeEmbed(out.join('\n'), undefined, guildId)] });
 };
 
 function formatMs(ms: number | null) {

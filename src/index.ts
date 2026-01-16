@@ -197,7 +197,10 @@ client.on('interactionCreate', async (interaction: any) => {
   if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This button does not belong to this channel.' });
 
         if (prefix === 'ticket_claim') {
-          if (!isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to claim tickets.' });
+          if (!isStaff(member)) {
+            try { await interaction.reply({ ephemeral: true, content: 'You do not have permission to claim tickets.' }); } catch (e) {}
+            return;
+          }
           try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
           const meta = getTicketMeta(ticket.id);
           if (meta && meta.claimedBy) {
@@ -235,7 +238,8 @@ client.on('interactionCreate', async (interaction: any) => {
         }
 
         if (prefix === 'ticket_close') {
-          if (ticket.userId !== interaction.user.id && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+          const isOwner = ticket.userId === interaction.user.id;
+          if (!isOwner && !isStaff(member)) return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
           
           const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
           
@@ -260,6 +264,7 @@ client.on('interactionCreate', async (interaction: any) => {
 
       if (prefix === 'close_confirm') {
         const ticketId = Number(parts[1]);
+        const closerType = parts[2] || 'staff';
         
         const ticket = getTicketById(ticketId);
         if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
@@ -276,21 +281,23 @@ client.on('interactionCreate', async (interaction: any) => {
           } catch (e) { return false; }
         }
         
-        if (ticket.userId !== interaction.user.id && !isStaff(member)) {
-          return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+        const reasonData = ticketManager.closeReasons.get(`${ticketId}`);
+        if (reasonData && reasonData.userId !== interaction.user.id && !isStaff(member)) {
+          return await safeReply({ ephemeral: true, content: 'You do not have permission to confirm this close.' });
         }
         
         try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
         
-        const reasonData = ticketManager.closeReasons.get(`${ticketId}`);
         const reason = reasonData?.reason || 'No reason provided';
         
         const result = await ticketManager.closeTicket(ticket.channelId, interaction.user.id, reason);
-        incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
+        
+        if (closerType === 'staff') {
+          incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
+        }
         
         ticketManager.closeReasons.delete(`${ticketId}`);
         
-        // Delete the close request message
         try {
           if (reasonData?.messageId) {
             const channel = interaction.channel;
@@ -356,11 +363,27 @@ client.on('interactionCreate', async (interaction: any) => {
         if (!ticket) return await safeReply({ ephemeral: true, content: 'Ticket not found.' });
         if (interaction.channelId !== ticket.channelId) return await safeReply({ ephemeral: true, content: 'This modal does not belong to this channel.' });
         
+        const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+        const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+        const isOwner = ticket.userId === interaction.user.id;
+        
+        function isStaff(member: GuildMember | any) {
+          try {
+            if (!member) return false;
+            if (settings && settings.staffRoleId) return member.roles?.cache?.has(settings.staffRoleId);
+            return member.permissions?.has(PermissionFlagsBits.ManageChannels) || member.permissions?.has(PermissionFlagsBits.ManageGuild);
+          } catch (e) { return false; }
+        }
+        
+        if (!isOwner && !isStaff(member)) {
+          return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+        }
+        
         const reason = interaction.fields.getTextInputValue('close_reason').trim() || 'No reason provided';
         
         const { ActionRowBuilder: ButtonActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
         const acceptButton = new ButtonBuilder()
-          .setCustomId(`close_confirm:${ticket.id}`)
+          .setCustomId(`close_confirm:${ticket.id}:${isOwner ? 'owner' : 'staff'}`)
           .setLabel('Accept')
           .setStyle(ButtonStyle.Success);
         
