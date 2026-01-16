@@ -376,7 +376,7 @@ client.on('interactionCreate', async (interaction: any) => {
         }
         
         if (!isOwner && !isStaff(member)) {
-          return await safeReply({ ephemeral: true, content: 'You do not have permission to close this ticket.' });
+          return await safeReply({ ephemeral: true, content: 'You aren\'t the ticket owner.' });
         }
         
         const reason = interaction.fields.getTextInputValue('close_reason').trim() || 'No reason provided';

@@ -99,6 +99,9 @@ export const leaderboard = async function (interaction: ChatInputCommandInteract
 
 export const setprofile = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ ephemeral: true });
+  const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
+  const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
+  if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to set profiles.', undefined, interaction.guildId || undefined)] });
   const display = interaction.options.getString('display') || interaction.options.getString('name') || undefined;
   const bio = interaction.options.getString('bio') || undefined;
   createOrUpdateProfile(interaction.guildId!, interaction.user.id, display, bio);

@@ -15,9 +15,18 @@ export const add = async function (interaction: ChatInputCommandInteraction, ctx
   const user = interaction.options.getUser('user', true);
   const channel = interaction.channel as Channel | null;
   if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) return interaction.editReply({ embeds: [makeEmbed('This command must be used in a ticket channel', undefined, interaction.guildId || undefined)] });
+  
+  const ticket = getTicketByChannel(channel.id) as any | null;
+  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
+  
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
-  if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to add users to tickets.', undefined, interaction.guildId || undefined)] });
+  
+  const isStaff = isStaffFromSettings(member, settings);
+  const isOwner = ticket.userId === interaction.user.id;
+  
+  if (!isStaff && !isOwner) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to add users to this ticket.', undefined, interaction.guildId || undefined)] });
+  
   await (channel as any).permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
   return interaction.editReply({ embeds: [makeEmbed(`Added ${user.tag} to the ticket.`, undefined, interaction.guildId || undefined)] });
 };
@@ -27,9 +36,18 @@ export const remove = async function (interaction: ChatInputCommandInteraction, 
   const user = interaction.options.getUser('user', true);
   const channel = interaction.channel as Channel | null;
   if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) return interaction.editReply({ embeds: [makeEmbed('This command must be used in a ticket channel', undefined, interaction.guildId || undefined)] });
+  
+  const ticket = getTicketByChannel(channel.id) as any | null;
+  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
+  
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
-  if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to remove users from tickets.', undefined, interaction.guildId || undefined)] });
+  
+  const isStaff = isStaffFromSettings(member, settings);
+  const isOwner = ticket.userId === interaction.user.id;
+  
+  if (!isStaff && !isOwner) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to remove users from this ticket.', undefined, interaction.guildId || undefined)] });
+  
   await (channel as any).permissionOverwrites.edit(user.id, { ViewChannel: false });
   return interaction.editReply({ embeds: [makeEmbed(`Removed ${user.tag} from the ticket.`, undefined, interaction.guildId || undefined)] });
 };
@@ -154,19 +172,6 @@ export const rename = async function (interaction: ChatInputCommandInteraction, 
   if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to rename this ticket.', undefined, interaction.guildId || undefined)] });
   await (interaction.channel as any).setName(newName);
   return interaction.editReply({ embeds: [makeEmbed(`Channel renamed to ${newName}.`, undefined, interaction.guildId || undefined)] });
-};
-
-export const topic = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
-  const topic = interaction.options.getString('topic', true);
-  if (!interaction.channel || !('isTextBased' in interaction.channel) || !(interaction.channel as any).isTextBased()) return interaction.editReply('This command must be used in a ticket channel');
-  const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
-  const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
-  const ticket = getTicketByChannel(interaction.channel.id) as any | null;
-  if (!ticket) return interaction.editReply('This channel is not a ticket.');
-  if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.editReply('You do not have permission to set the topic.');
-  await (interaction.channel as any).setTopic(topic);
-  return interaction.editReply({ content: 'Topic updated.' });
 };
 
 export const transcript = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {

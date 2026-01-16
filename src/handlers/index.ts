@@ -31,7 +31,6 @@ export default {
 
   close: ticket.close,
   rename: ticket.rename,
-  topic: ticket.topic,
   transcript: ticket.transcript,
   setticket: ticket.setticket,
 
