@@ -3,6 +3,7 @@ import { createTicketRow, updateTicketRow, getTicketByChannel, getGuildSettings,
 import { saveChannelTranscript } from '../lib/transcript';
 import { getTranscriptBaseUrl } from '../lib/urlHelper';
 import { updateStatsEmbeds } from '../lib/statsUpdater';
+import { isOutsideWorkingHours } from '../lib/workingHours';
 
 function processWelcomeMessage(template: string, user: GuildMember, ticketId: number, categoryName: string): string {
   return template
@@ -119,6 +120,16 @@ export class TicketManager {
         } catch {}
       }
       await (channel as TextChannel).send({ content: `${staffRoleMention} ${opener.toString()} has created a new ticket`, embeds: [embed], components: [row as any] });
+      
+      const { isOutside, message: workingHoursMessage } = isOutsideWorkingHours(settings);
+      if (isOutside && workingHoursMessage) {
+        const workingHoursEmbed = new EmbedBuilder()
+          .setTitle('⏰ Outside Working Hours')
+          .setDescription(workingHoursMessage)
+          .setColor(0xFFA500)
+          .setTimestamp();
+        await (channel as TextChannel).send({ embeds: [workingHoursEmbed] });
+      }
     } catch (err) {
       await (channel as TextChannel).send({ content: description });
     }
@@ -135,10 +146,9 @@ export class TicketManager {
     if (!channel || !channel.isTextBased()) throw new Error('Channel not found or not text');
     const closedAt = Date.now();
     const reason = closeReason || 'No reason provided';
-    await (channel as TextChannel).send(`Ticket closed by <@${closerId || 'system'}>. Reason: ${reason}`);
 
-  const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
-  updateTicketRow(ticket.id, { status: 'closed', closedAt, transcriptPath, closedBy: closerId || null });
+    const transcriptPath = await saveChannelTranscript(channel as TextChannel, ticket.id as number);
+    updateTicketRow(ticket.id, { status: 'closed', closedAt, transcriptPath, closedBy: closerId || null });
 
     try {
       const settings = getGuildSettings((channel as TextChannel).guild.id as string) || null;

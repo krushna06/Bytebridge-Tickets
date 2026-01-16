@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Toggle } from "@/components/ui/toggle"
-import { HelpCircle } from "lucide-react"
+import { HelpCircle, Plus, Trash2 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const CHANNEL_PREFIX_VARIABLES = [
@@ -14,6 +14,16 @@ const CHANNEL_PREFIX_VARIABLES = [
   { name: "{user}", description: "Username of the ticket creator" },
   { name: "{category}", description: "Category name" },
 ]
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+const TIMEZONES = [
+  "UTC", "EST", "CST", "MST", "PST", "GMT", "CET", "IST", "JST", "AEST", "NZST"
+]
+
+type WorkingHours = {
+  [day: string]: { start: string; end: string } | null
+}
 
 export function Settings() {
   const [embedColor, setEmbedColor] = useState("#5865f2")
@@ -24,6 +34,8 @@ export function Settings() {
   const [feedbackChannel, setFeedbackChannel] = useState("")
   const [logsChannel, setLogsChannel] = useState("")
   const [channelPrefix, setChannelPrefix] = useState("{category}-{count}")
+  const [timezone, setTimezone] = useState("UTC")
+  const [workingHours, setWorkingHours] = useState<WorkingHours>({})
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -46,9 +58,28 @@ export function Settings() {
         if (typeof data.feedbackChannel === "string") setFeedbackChannel(data.feedbackChannel)
         if (typeof data.logsChannel === "string") setLogsChannel(data.logsChannel)
         if (typeof data.channelPrefix === "string") setChannelPrefix(data.channelPrefix)
+        if (typeof data.timezone === "string") setTimezone(data.timezone)
+        if (typeof data.workingHours === "object" && data.workingHours) setWorkingHours(data.workingHours)
       })
       .catch(() => {})
   }, [])
+
+  const handleWorkingHourChange = (day: string, field: "start" | "end", value: string) => {
+    setWorkingHours((prev) => ({
+      ...prev,
+      [day]: {
+        ...(prev[day] || { start: "09:00", end: "17:00" }),
+        [field]: value,
+      },
+    }))
+  }
+
+  const toggleWorkingDay = (day: string) => {
+    setWorkingHours((prev) => ({
+      ...prev,
+      [day]: prev[day] ? null : { start: "09:00", end: "17:00" },
+    }))
+  }
 
   const handleSave = () => {
     const apiBase = process.env.NEXT_PUBLIC_DASHBOARD_API_URL || ""
@@ -72,6 +103,8 @@ export function Settings() {
         feedbackChannel,
         logsChannel,
         channelPrefix,
+        timezone,
+        workingHours,
       }),
     })
       .then(() => {})
@@ -168,6 +201,67 @@ export function Settings() {
               >
                 {claimEnabled ? "Enabled" : "Disabled"}
               </Toggle>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Working Hours & Timezone</CardTitle>
+            <CardDescription>Set your support team's working hours</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="timezone">Timezone</Label>
+              <select
+                id="timezone"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-4">
+              <Label>Working Hours by Day</Label>
+              <div className="space-y-3">
+                {DAYS.map((day) => (
+                  <div key={day} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <button
+                      onClick={() => toggleWorkingDay(day)}
+                      className={`w-24 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        workingHours[day]
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted-foreground/20 text-muted-foreground"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                    {workingHours[day] && (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="time"
+                          value={workingHours[day]?.start || "09:00"}
+                          onChange={(e) => handleWorkingHourChange(day, "start", e.target.value)}
+                          className="px-2 py-1 border border-border rounded bg-background text-foreground text-sm"
+                        />
+                        <span className="text-muted-foreground">to</span>
+                        <input
+                          type="time"
+                          value={workingHours[day]?.end || "17:00"}
+                          onChange={(e) => handleWorkingHourChange(day, "end", e.target.value)}
+                          className="px-2 py-1 border border-border rounded bg-background text-foreground text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

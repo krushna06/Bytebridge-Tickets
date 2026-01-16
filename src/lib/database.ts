@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS guild_settings (
   embedFooter TEXT,
   ticketChannelId TEXT,
   logsChannelId TEXT,
-  channelPrefix TEXT DEFAULT '{category}-{count}'
+  channelPrefix TEXT DEFAULT '{category}-{count}',
+  timezone TEXT DEFAULT 'UTC',
+  workingHours TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
@@ -162,6 +164,12 @@ try {
   if (!cols.includes('logsChannelId')) {
     db.prepare('ALTER TABLE guild_settings ADD COLUMN logsChannelId TEXT').run();
   }
+  if (!cols.includes('timezone')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN timezone TEXT DEFAULT "UTC"').run();
+  }
+  if (!cols.includes('workingHours')) {
+    db.prepare('ALTER TABLE guild_settings ADD COLUMN workingHours TEXT').run();
+  }
 } catch (e) { /* ignore */ }
 
 try {
@@ -266,6 +274,8 @@ export type GuildSettingsRow = {
    ticketChannelId?: string | null;
    logsChannelId?: string | null;
    channelPrefix?: string | null;
+   timezone?: string | null;
+   workingHours?: string | null;
 };
 
 export function getGuildSettings(guildId: string): GuildSettingsRow | null {
@@ -276,8 +286,8 @@ export function getGuildSettings(guildId: string): GuildSettingsRow | null {
 
 export function upsertGuildSettings(settings: GuildSettingsRow) {
   const stmt = db.prepare(`INSERT INTO guild_settings (
-    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout, embedColor, embedFooter, ticketChannelId, logsChannelId, channelPrefix
-  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout,@embedColor,@embedFooter,@ticketChannelId,@logsChannelId,@channelPrefix)
+    guildId, staffRoleId, allowedRoles, categoryId, closedCategoryId, claimEnabled, transcriptEnabled, transcriptChannelId, feedbackChannelId, closeTimeout, embedColor, embedFooter, ticketChannelId, logsChannelId, channelPrefix, timezone, workingHours
+  ) VALUES (@guildId,@staffRoleId,@allowedRoles,@categoryId,@closedCategoryId,@claimEnabled,@transcriptEnabled,@transcriptChannelId,@feedbackChannelId,@closeTimeout,@embedColor,@embedFooter,@ticketChannelId,@logsChannelId,@channelPrefix,@timezone,@workingHours)
   ON CONFLICT(guildId) DO UPDATE SET
     staffRoleId=excluded.staffRoleId,
     allowedRoles=excluded.allowedRoles,
@@ -292,7 +302,9 @@ export function upsertGuildSettings(settings: GuildSettingsRow) {
     embedFooter=excluded.embedFooter,
     ticketChannelId=excluded.ticketChannelId,
     logsChannelId=excluded.logsChannelId,
-    channelPrefix=excluded.channelPrefix
+    channelPrefix=excluded.channelPrefix,
+    timezone=excluded.timezone,
+    workingHours=excluded.workingHours
   `);
   stmt.run(settings as any);
 }

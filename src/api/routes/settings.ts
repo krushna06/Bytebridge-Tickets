@@ -12,6 +12,14 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
         staffRoles = '';
       }
     }
+    let workingHours = {};
+    if (s && s.workingHours) {
+      try {
+        workingHours = JSON.parse(s.workingHours);
+      } catch {
+        workingHours = {};
+      }
+    }
     const out = {
       embedColor: s && s.embedColor ? s.embedColor : '#5865f2',
       embedFooter: s && s.embedFooter ? s.embedFooter : 'Support Team',
@@ -20,7 +28,9 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
       transcriptChannel: s && s.transcriptChannelId ? s.transcriptChannelId : '',
       feedbackChannel: s && s.feedbackChannelId ? s.feedbackChannelId : '',
       logsChannel: s && s.logsChannelId ? s.logsChannelId : '',
-      channelPrefix: s && s.channelPrefix ? s.channelPrefix : '{category}-{count}'
+      channelPrefix: s && s.channelPrefix ? s.channelPrefix : '{category}-{count}',
+      timezone: s && s.timezone ? s.timezone : 'UTC',
+      workingHours
     };
     res.json(out);
   });
@@ -39,6 +49,11 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
       allowedRoles = roleIds.length ? JSON.stringify(roleIds) : null;
     }
 
+    let workingHours = existing ? existing.workingHours : null;
+    if (body.workingHours) {
+      workingHours = JSON.stringify(body.workingHours);
+    }
+
     const toSave = {
       guildId,
       staffRoleId: existing ? existing.staffRoleId : null,
@@ -54,7 +69,9 @@ export function registerSettingsRoutes(app: any, requireKey: any) {
       embedFooter: body.embedFooter || (existing ? existing.embedFooter : null),
       ticketChannelId: body.ticketChannel || (existing ? existing.ticketChannelId : null),
       logsChannelId: body.logsChannel || (existing ? existing.logsChannelId : null),
-      channelPrefix: body.channelPrefix || (existing ? existing.channelPrefix : '{category}-{count}')
+      channelPrefix: body.channelPrefix || (existing ? existing.channelPrefix : '{category}-{count}'),
+      timezone: body.timezone || (existing ? existing.timezone : 'UTC'),
+      workingHours
     } as any;
     upsertGuildSettings(toSave);
     res.json({ ok: true });
