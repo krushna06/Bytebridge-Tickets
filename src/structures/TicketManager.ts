@@ -136,6 +136,10 @@ export class TicketManager {
 
     updateStatsEmbeds(this.client, guild.id).catch(err => console.error('Failed to update stats embeds:', err));
 
+    if ((this as any).updateBotStatus) {
+      (this as any).updateBotStatus();
+    }
+
     return { ticketId, channel };
   }
 
@@ -248,6 +252,10 @@ export class TicketManager {
     }, 5000);
 
     updateStatsEmbeds(this.client, ticket.guildId).catch(err => console.error('Failed to update stats embeds:', err));
+
+    if ((this as any).updateBotStatus) {
+      (this as any).updateBotStatus();
+    }
 
     return { transcriptPath, ticketId: ticket.id as number };
   }

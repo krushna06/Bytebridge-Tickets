@@ -49,6 +49,24 @@ setClient(client);
 
 const ticketManager = new TicketManager(client);
 
+const updateBotStatus = () => {
+  try {
+    const guilds = client.guilds.cache.map(g => g.id);
+    let totalOpen = 0;
+    for (const guildId of guilds) {
+      totalOpen += countOpenTicketsByGuild(guildId);
+    }
+    client.user?.setPresence({
+      activities: [{ name: `Handling Tickets: ${totalOpen}`, type: 0 }],
+      status: 'online'
+    });
+  } catch (e) {
+    console.warn('Failed to update status', e);
+  }
+};
+
+(ticketManager as any).updateBotStatus = updateBotStatus;
+
 import commands from './commands';
 const commandsMap = new Map<string, any>();
 for (const c of (commands as any[])) {
@@ -60,6 +78,11 @@ for (const c of (commands as any[])) {
 
 client.once('ready', () => {
   console.log('Bot ready as', client.user?.tag);
+  
+  updateBotStatus();
+  // Update status every 5 minutes as fallback
+  setInterval(updateBotStatus, 5 * 60 * 1000);
+  
   startBotApi(ticketManager).catch(err => console.warn('Failed to start bot API', err));
 });
 
