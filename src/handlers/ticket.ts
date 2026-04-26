@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Channel, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ChatInputCommandInteraction, Channel, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import {
   getTicketByChannel,
   getGuildSettings,
@@ -11,7 +11,7 @@ import {
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const add = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user', true);
   const channel = interaction.channel as Channel | null;
   if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) return interaction.editReply({ embeds: [makeEmbed('This command must be used in a ticket channel', undefined, interaction.guildId || undefined)] });
@@ -32,7 +32,7 @@ export const add = async function (interaction: ChatInputCommandInteraction, ctx
 };
 
 export const remove = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user', true);
   const channel = interaction.channel as Channel | null;
   if (!channel || !('isTextBased' in channel) || !(channel as any).isTextBased()) return interaction.editReply({ embeds: [makeEmbed('This command must be used in a ticket channel', undefined, interaction.guildId || undefined)] });
@@ -53,7 +53,7 @@ export const remove = async function (interaction: ChatInputCommandInteraction, 
 };
 
 export const transfer = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user', true);
   const ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
   if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
@@ -65,7 +65,7 @@ export const transfer = async function (interaction: ChatInputCommandInteraction
 };
 
 export const claim = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to claim tickets.', undefined, interaction.guildId || undefined)] });
@@ -80,7 +80,7 @@ export const claim = async function (interaction: ChatInputCommandInteraction, c
 };
 
 export const forceClose = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const ticketId = interaction.options.getString('ticketid', true);
   const reason = interaction.options.getString('reason', false) || 'No reason provided';
   
@@ -101,7 +101,7 @@ export const forceClose = async function (interaction: ChatInputCommandInteracti
 };
 
 export const move = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const category = interaction.options.getChannel('channel', true) || interaction.options.getChannel('category', true);
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
@@ -112,7 +112,7 @@ export const move = async function (interaction: ChatInputCommandInteraction, ct
 };
 
 export const priority = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const level = interaction.options.getString('level', true);
   const ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
   if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
@@ -124,7 +124,7 @@ export const priority = async function (interaction: ChatInputCommandInteraction
 };
 
 export const release = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
   if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
@@ -135,12 +135,12 @@ export const release = async function (interaction: ChatInputCommandInteraction,
 };
 
 export const close = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  if (!interaction.channel) return interaction.reply({ embeds: [makeEmbed('No channel', undefined, interaction.guildId || undefined)], ephemeral: true });
+  if (!interaction.channel) return interaction.reply({ embeds: [makeEmbed('No channel', undefined, interaction.guildId || undefined)], flags: MessageFlags.Ephemeral });
   const ticket = getTicketByChannel(interaction.channel.id) as any | null;
-  if (!ticket) return interaction.reply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)], ephemeral: true });
+  if (!ticket) return interaction.reply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)], flags: MessageFlags.Ephemeral });
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
-  if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.reply({ embeds: [makeEmbed('You do not have permission to close this ticket.', undefined, interaction.guildId || undefined)], ephemeral: true });
+  if (ticket.userId !== interaction.user.id && !isStaffFromSettings(member, settings)) return interaction.reply({ embeds: [makeEmbed('You do not have permission to close this ticket.', undefined, interaction.guildId || undefined)], flags: MessageFlags.Ephemeral });
   
   const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
   
@@ -162,7 +162,7 @@ export const close = async function (interaction: ChatInputCommandInteraction, c
 };
 
 export const rename = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const newName = interaction.options.getString('name', true);
   if (!interaction.channel || !('isTextBased' in interaction.channel) || !(interaction.channel as any).isTextBased()) return interaction.editReply('This command must be used in a ticket channel');
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
@@ -175,7 +175,7 @@ export const rename = async function (interaction: ChatInputCommandInteraction, 
 };
 
 export const transcript = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
   if (!ticket) return interaction.editReply('This channel is not a ticket.');
   if (!ticket.transcriptPath) return interaction.editReply('No transcript saved yet.');
@@ -183,7 +183,7 @@ export const transcript = async function (interaction: ChatInputCommandInteracti
 };
 
 export const setticket = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const channel = interaction.options.getChannel('channel', true);
   const user = interaction.options.getUser('user', false);
   

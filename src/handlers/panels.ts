@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { createPanel, getPanelById, getLatestPanelForGuild, updatePanelMessage, listPanels, getPanelByChannel, deletePanel, updatePanelStatsMessage, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild, getCategoryByDiscordId } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 import fs from 'fs';
@@ -107,7 +107,7 @@ function createStatsEmbedInternal(guildId: string, embedColor?: string): EmbedBu
 }
 
 export const panel = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!member || !member.permissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to manage panels.', undefined, interaction.guildId || undefined)] });
   let sub = 'create';
@@ -200,7 +200,7 @@ export const panel = async function (interaction: ChatInputCommandInteraction, c
 };
 
 export const sendpanel = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!member || !member.permissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to send panels.', undefined, interaction.guildId || undefined)] });
   const channel = interaction.options.getChannel('channel') as any;

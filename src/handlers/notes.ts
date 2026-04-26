@@ -1,9 +1,9 @@
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags } from 'discord.js';
 import { addNote, getNotesForUser, deleteNote } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
 export const note = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const target = interaction.options.getUser('user') || interaction.user;
   const content = interaction.options.getString('text') || interaction.options.getString('content') || '';
   const isPrivate = 1;
@@ -28,7 +28,7 @@ export const note = async function (interaction: ChatInputCommandInteraction, ct
 };
 
 export const stickynotes = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   let sub = 'add';
   try { sub = interaction.options.getSubcommand(); } catch (e) { sub = 'add'; }
   if (sub === 'add') {
@@ -54,7 +54,7 @@ export const stickynotes = async function (interaction: ChatInputCommandInteract
 };
 
 export const viewnotes = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user') || interaction.user;
   const notes = getNotesForUser(interaction.guildId!, user.id);
   if (!notes.length) return interaction.editReply({ embeds: [makeEmbed('No notes found.', undefined, interaction.guildId || undefined)] });

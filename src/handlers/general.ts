@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags } from 'discord.js';
 import { getTag, listTicketsForUser } from '../lib/database';
 import path from 'path';
 import { Ctx, makeEmbed } from './common';
@@ -16,14 +16,14 @@ export const help = async function (interaction: ChatInputCommandInteraction, ct
       } catch (e) { return '/unknown'; }
     });
     const list = cmds.map((c: string) => `• ${c}`).join('\n');
-    await interaction.reply({ embeds: [makeEmbed(`Commands:\n${list}`, undefined, interaction.guildId || undefined)], ephemeral: true });
+    await interaction.reply({ embeds: [makeEmbed(`Commands:\n${list}`, undefined, interaction.guildId || undefined)], flags: MessageFlags.Ephemeral });
   } catch (e) {
-    await interaction.reply({ embeds: [makeEmbed('No commands found.', undefined, interaction.guildId || undefined)], ephemeral: true });
+    await interaction.reply({ embeds: [makeEmbed('No commands found.', undefined, interaction.guildId || undefined)], flags: MessageFlags.Ephemeral });
   }
 };
 
 export const _new = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const reason = interaction.options.getString('title') || interaction.options.getString('reason') || undefined;
   const category = interaction.options.getChannel('category') as any;
   const opener = interaction.guild?.members.cache.get(interaction.user.id) ?? (interaction.member as any);
@@ -32,7 +32,7 @@ export const _new = async function (interaction: ChatInputCommandInteraction, ct
 };
 
 export const tag = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const tagName = interaction.options.getString('name', true);
   const tag = getTag(interaction.guildId!, tagName) as any | null;
   if (!tag) return interaction.editReply({ embeds: [makeEmbed(`Tag '${tagName}' not found.`, undefined, interaction.guildId || undefined)] });
@@ -40,7 +40,7 @@ export const tag = async function (interaction: ChatInputCommandInteraction, ctx
 };
 
 export const tickets = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user', true);
   const rows = listTicketsForUser(interaction.guildId!, user.id);
   if (!rows.length) return interaction.editReply({ embeds: [makeEmbed('No tickets found.', undefined, interaction.guildId || undefined)] });

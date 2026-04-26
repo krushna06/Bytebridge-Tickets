@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags } from 'discord.js';
 import { createOrUpdateProfile, getProfile, getLeaderboard, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild, getGuildSettings } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
@@ -18,7 +18,7 @@ function isStaffUser(userId: string, guildId: string, client: any): boolean {
 }
 
 export const leaderboard = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const sortBy = interaction.options.getString('sort') || 'resolved';
   const limit = interaction.options.getInteger('limit') || 10;
   const guildId = interaction.guildId!;
@@ -98,7 +98,7 @@ export const leaderboard = async function (interaction: ChatInputCommandInteract
 };
 
 export const setprofile = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to set profiles.', undefined, interaction.guildId || undefined)] });
@@ -109,7 +109,7 @@ export const setprofile = async function (interaction: ChatInputCommandInteracti
 };
 
 export const stats = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const total = countTicketsByGuild(interaction.guildId!);
   const open = countOpenTicketsByGuild(interaction.guildId!);
   const guildId = interaction.guildId!;
@@ -235,7 +235,7 @@ function formatMs(ms: number | null) {
 }
 
 export const viewprofile = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const user = interaction.options.getUser('user', true);
   const profile = getProfile(interaction.guildId!, user.id) as any | null;
   if (!profile) return interaction.editReply({ embeds: [makeEmbed('No profile.', undefined, interaction.guildId || undefined)] });
