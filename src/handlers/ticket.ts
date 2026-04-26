@@ -92,7 +92,9 @@ export const forceClose = async function (interaction: ChatInputCommandInteracti
   if (ticketIdOption) {
     ticket = getTicketById(Number(ticketIdOption)) as any | null;
   } else {
-    ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
+    const channelId = interaction.channel?.id;
+    if (!channelId) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
+    ticket = getTicketByChannel(channelId) as any | null;
   }
   
   if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
