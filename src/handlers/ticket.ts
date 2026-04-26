@@ -81,20 +81,26 @@ export const claim = async function (interaction: ChatInputCommandInteraction, c
 
 export const forceClose = async function (interaction: ChatInputCommandInteraction, ctx: Ctx) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const ticketId = interaction.options.getString('ticketid', true);
+  const ticketIdOption = interaction.options.getString('ticketid', false);
   const reason = interaction.options.getString('reason', false) || 'No reason provided';
   
   const settings = interaction.guildId ? getGuildSettings(interaction.guildId) : null;
   const member = interaction.guild ? interaction.guild.members.cache.get(interaction.user.id) : null;
   if (!isStaffFromSettings(member, settings)) return interaction.editReply({ embeds: [makeEmbed('You do not have permission to force-close tickets.', undefined, interaction.guildId || undefined)] });
   
-  const ticket = getTicketById(Number(ticketId)) as any | null;
-  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('Ticket not found.', undefined, interaction.guildId || undefined)] });
+  let ticket: any | null = null;
+  if (ticketIdOption) {
+    ticket = getTicketById(Number(ticketIdOption)) as any | null;
+  } else {
+    ticket = getTicketByChannel(interaction.channel?.id || '') as any | null;
+  }
+  
+  if (!ticket) return interaction.editReply({ embeds: [makeEmbed('This channel is not a ticket.', undefined, interaction.guildId || undefined)] });
   
   try {
     const result = await ctx.ticketManager.closeTicket(ticket.channelId, interaction.user.id, reason);
     incStaffStat(ticket.guildId, interaction.user.id, 'closedCount');
-    return interaction.editReply({ embeds: [makeEmbed(`Ticket #${ticketId} forcibly closed.\nReason: ${reason}`, undefined, interaction.guildId || undefined)] });
+    return interaction.editReply({ embeds: [makeEmbed(`Ticket #${ticket.id} forcibly closed.\nReason: ${reason}`, undefined, interaction.guildId || undefined)] });
   } catch (err: any) {
     return interaction.editReply({ embeds: [makeEmbed(`Error closing ticket: ${err?.message || 'Unknown error'}`, undefined, interaction.guildId || undefined)] });
   }
