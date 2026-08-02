@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Notes',
   data: new SlashCommandBuilder()
     .setName('note')
     .setDescription('Add an internal note to a ticket or user')

@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Stats',
   data: new SlashCommandBuilder()
     .setName('stats')
     .setDescription('Show staff or server stats')

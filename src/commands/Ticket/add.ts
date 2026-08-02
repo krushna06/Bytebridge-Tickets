@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Ticket',
   data: new SlashCommandBuilder()
     .setName('add')
     .setDescription('Add a user to the ticket channel')

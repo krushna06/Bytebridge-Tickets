@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Staff',
   data: new SlashCommandBuilder()
     .setName('sendpanel')
     .setDescription('Send a saved panel to a channel')

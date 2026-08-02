@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Ticket',
   data: new SlashCommandBuilder()
     .setName('close')
     .setDescription('Close the current ticket')

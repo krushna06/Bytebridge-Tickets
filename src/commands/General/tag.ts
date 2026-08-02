@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'General',
   data: new SlashCommandBuilder()
     .setName('tag')
     .setDescription('Manage ticket tags')

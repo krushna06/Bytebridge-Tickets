@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Notes',
   data: new SlashCommandBuilder()
     .setName('viewnotes')
     .setDescription('View notes for a user or ticket')

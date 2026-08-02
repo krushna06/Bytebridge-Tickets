@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Staff',
   data: new SlashCommandBuilder()
     .setName('setticket')
     .setDescription('Convert an existing channel into a ticket channel')

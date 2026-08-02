@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Staff',
   data: new SlashCommandBuilder()
     .setName('forceclose')
     .setDescription('Force close a ticket without requests')

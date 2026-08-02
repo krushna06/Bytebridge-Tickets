@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, EmbedBuilder } from 'discord.js';
 import { createOrUpdateProfile, getProfile, getLeaderboard, countTicketsByGuild, countOpenTicketsByGuild, listTicketsForGuild, getGuildSettings } from '../lib/database';
 import { Ctx, makeEmbed, isStaffFromSettings } from './common';
 
@@ -265,19 +265,32 @@ export const viewprofile = async function (interaction: ChatInputCommandInteract
   const avgResponseMs = responseTimeResult?.avgResponseTime || null;
   const avgResolveMs = resolveTimeResult?.avgResolveTime || null;
 
-  const lines = [
-    `**Profile for ${user.tag}**`,
-    profile.displayName ? `Display Name: ${profile.displayName}` : '',
-    profile.bio ? `Bio: ${profile.bio}` : '',
-    profile.timezone ? `Timezone: ${profile.timezone}` : '',
-    profile.activeHours ? `Active Hours: ${profile.activeHours}` : '',
-    '',
-    `**Statistics**`,
-    `Tickets Closed: ${closedCount}`,
-    `Tickets Claimed: ${claimedCount}`,
-    `Avg Response Time: ${formatMs(avgResponseMs)}`,
-    `Avg Resolve Time: ${formatMs(avgResolveMs)}`
-  ].filter(Boolean).join('\n');
+  const embed = new EmbedBuilder()
+    .setTitle(`${user.tag}`)
+    .setThumbnail(user.displayAvatarURL({ size: 256 }))
+    .setColor(interaction.guild?.members.cache.get(user.id)?.displayColor || null)
+    .addFields(
+      { name: '📋 Display Name', value: profile.displayName || 'Not set', inline: true },
+      { name: '🌍 Timezone', value: profile.timezone || 'Not set', inline: true },
+      { name: '⏰ Active Hours', value: profile.activeHours || 'Not set', inline: true },
+      { name: '📝 Bio', value: profile.bio || 'No bio set', inline: false }
+    )
+    .addFields(
+      { name: '🎫 Tickets Closed', value: closedCount.toString(), inline: true },
+      { name: '🎫 Tickets Claimed', value: claimedCount.toString(), inline: true },
+      { name: '⚡ Avg Response Time', value: formatMs(avgResponseMs), inline: true },
+      { name: '✅ Avg Resolve Time', value: formatMs(avgResolveMs), inline: true }
+    )
+    .setTimestamp()
+    .setFooter({ text: `Requested by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ size: 128 }) });
 
-  return interaction.editReply({ embeds: [makeEmbed(lines, undefined, interaction.guildId || undefined)] });
+  if (interaction.guildId) {
+    const settings = getGuildSettings(interaction.guildId);
+    if (settings?.embedColor) {
+      const colorNum = parseInt(settings.embedColor.replace('#', ''), 16);
+      embed.setColor(colorNum);
+    }
+  }
+
+  return interaction.editReply({ embeds: [embed] });
 };

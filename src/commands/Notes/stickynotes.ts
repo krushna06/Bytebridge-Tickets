@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import handlers from '../../handlers';
 
 export default {
+  category: 'Notes',
   data: new SlashCommandBuilder()
     .setName('stickynotes')
     .setDescription('Manage sticky notes for tickets')
